@@ -13,7 +13,7 @@ let usuarios = [];
 // ============================================
 // CONFIGURAÇÃO VECTOR PLAYER
 // ============================================
-const VECTOR_API_KEY = '364e8ddcae71ebbd96996a871690fd10d69affb719f9b6a87383987aa79590b3';
+const VECTOR_API_KEY = 'da33ff427d6631786a8cfa3626edf2f2ab67fba77dd32d0b48c62c782a55c6b4';
 const VECTOR_API_URL = 'https://vectorplayer.com/api/develop';
 const VECTOR_LISTA_ID = 1; // Altere para o ID da sua lista premium
 
@@ -60,8 +60,12 @@ async function buscarCanaisVectorPlayer() {
       }
     });
 
+    console.log('📡 Status da resposta:', response.status);
+
     if (!response.ok) {
       console.error('❌ Erro na API Vector Player:', response.status);
+      const erro = await response.text();
+      console.error('❌ Detalhes:', erro);
       return [];
     }
 
