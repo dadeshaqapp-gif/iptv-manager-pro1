@@ -1,14 +1,25 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - SERVER
+// IPTV MANAGER PRO - COM VECTOR PLAYER API
 // ============================================
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const os = require('os');
-const PORT = 8888;
+
+const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
+// ============================================
+// CONFIGURAÇÃO VECTOR PLAYER
+// ============================================
+const VECTOR_API_KEY = '364e8ddcae71ebbd96996a871690fd10d69affb719f9b6a87383987aa79590b3';
+const VECTOR_API_URL = 'https://vectorplayer.com/api/develop';
+const VECTOR_LISTA_ID = 1; // Altere para o ID da sua lista premium
+
+// ============================================
+// FUNÇÃO: OBTER IP LOCAL
+// ============================================
 function obterIpLocal() {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -21,6 +32,87 @@ function obterIpLocal() {
   return 'localhost';
 }
 
+// ============================================
+// FUNÇÃO: VALIDAR MAC
+// ============================================
+function validarMac(mac) {
+  if (!mac) return true;
+  mac = mac.trim().toUpperCase().replace(/\s/g, '');
+  const regex6 = /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/;
+  const regex8 = /^([0-9A-F]{2}[:-]){7}[0-9A-F]{2}$/;
+  const regex6sem = /^[0-9A-F]{12}$/;
+  const regex8sem = /^[0-9A-F]{16}$/;
+  return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
+}
+
+// ============================================
+// FUNÇÃO: BUSCAR CANAIS DA API VECTOR PLAYER
+// ============================================
+async function buscarCanaisVectorPlayer() {
+  try {
+    const url = `${VECTOR_API_URL}/lista/${VECTOR_LISTA_ID}/channels`;
+    console.log('📡 Buscando canais do Vector Player...');
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${VECTOR_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      console.error('❌ Erro na API Vector Player:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    console.log(`✅ ${data.data?.length || 0} canais carregados do Vector Player`);
+    return data.data || [];
+  } catch (error) {
+    console.error('❌ Erro ao buscar canais:', error.message);
+    return [];
+  }
+}
+
+// ============================================
+// FUNÇÃO: GERAR PLAYLIST M3U
+// ============================================
+async function gerarPlaylistM3U(usuario) {
+  const expiracao = new Date(usuario.data_expiracao);
+  const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
+  
+  // Buscar canais reais do Vector Player
+  let canais = await buscarCanaisVectorPlayer();
+  
+  // Fallback: canais de exemplo se a API falhar
+  if (!canais || canais.length === 0) {
+    console.log('⚠️ Usando canais de exemplo (fallback)');
+    canais = [
+      { nome: 'Globo HD', url: 'http://exemplo.com/globo.ts', logo: '' },
+      { nome: 'SBT HD', url: 'http://exemplo.com/sbt.ts', logo: '' },
+      { nome: 'Record HD', url: 'http://exemplo.com/record.ts', logo: '' },
+      { nome: 'CNN Brasil', url: 'http://exemplo.com/cnn.ts', logo: '' },
+      { nome: 'SporTV', url: 'http://exemplo.com/sportv.ts', logo: '' },
+      { nome: 'HBO', url: 'http://exemplo.com/hbo.ts', logo: '' }
+    ];
+  }
+
+  let playlist = '#EXTM3U\n';
+  playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
+  playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
+  
+  canais.forEach(canal => {
+    const logo = canal.logo || canal.tvg_logo || '';
+    playlist += `#EXTINF:-1 tvg-logo="${logo}",${canal.nome}\n`;
+    playlist += canal.url + '\n';
+  });
+
+  return playlist;
+}
+
+// ============================================
+// CARREGAR USUÁRIOS
+// ============================================
 try {
   const data = fs.readFileSync('usuarios.json', 'utf8');
   usuarios = JSON.parse(data);
@@ -32,45 +124,8 @@ try {
 }
 
 // ============================================
-// FUNÇÃO: VALIDAR MAC (ACEITA 6 OU 8 PARES)
+// FUNÇÕES DE VALIDAÇÃO
 // ============================================
-function validarMac(mac) {
-  if (!mac) return true; // MAC é opcional
-  mac = mac.trim().toUpperCase();
-  // Remove espaços
-  mac = mac.replace(/\s/g, '');
-  // Aceita MAC com 6 pares (padrão) ou 8 pares
-  // Formatos: AA:BB:CC:DD:EE:FF ou AA-BB-CC-DD-EE-FF
-  // ou AA:BB:CC:DD:EE:FF:GG:HH
-  const regex6 = /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/;
-  const regex8 = /^([0-9A-F]{2}[:-]){7}[0-9A-F]{2}$/;
-  // Sem separadores (12 ou 16 caracteres)
-  const regex6sem = /^[0-9A-F]{12}$/;
-  const regex8sem = /^[0-9A-F]{16}$/;
-  return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
-}
-
-function gerarPlaylistM3U(usuario) {
-  const expiracao = new Date(usuario.data_expiracao);
-  const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
-  const canais = [
-    { nome: 'Globo HD', url: 'http://exemplo.com/globo.ts' },
-    { nome: 'SBT HD', url: 'http://exemplo.com/sbt.ts' },
-    { nome: 'Record HD', url: 'http://exemplo.com/record.ts' },
-    { nome: 'CNN Brasil', url: 'http://exemplo.com/cnn.ts' },
-    { nome: 'SporTV', url: 'http://exemplo.com/sportv.ts' },
-    { nome: 'HBO', url: 'http://exemplo.com/hbo.ts' }
-  ];
-  let playlist = '#EXTM3U\n';
-  playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
-  playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
-  canais.forEach(canal => {
-    playlist += `#EXTINF:-1 tvg-logo="",${canal.nome}\n`;
-    playlist += canal.url + '?user=' + usuario.username + '&token=' + usuario.password + '\n';
-  });
-  return playlist;
-}
-
 function validarUsuario(username, password) {
   const user = usuarios.find(u => u.username === username && u.password === password);
   if (!user) return null;
@@ -86,6 +141,9 @@ function validarPorMac(mac) {
   return user;
 }
 
+// ============================================
+// CRIAR SERVIDOR
+// ============================================
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
@@ -94,7 +152,11 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
 
   // ===== PLAYLIST =====
   if (pathname === '/playlist.m3u') {
@@ -103,11 +165,8 @@ const server = http.createServer((req, res) => {
     const mac = parsedUrl.query.mac;
 
     let user = null;
-    if (mac) {
-      user = validarPorMac(mac);
-    } else if (username && password) {
-      user = validarUsuario(username, password);
-    }
+    if (mac) user = validarPorMac(mac);
+    else if (username && password) user = validarUsuario(username, password);
 
     if (!user) {
       res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
@@ -115,12 +174,16 @@ const server = http.createServer((req, res) => {
       return;
     }
 
-    const playlist = gerarPlaylistM3U(user);
-    res.writeHead(200, {
-      'Content-Type': 'audio/x-mpegurl',
-      'Content-Disposition': 'attachment; filename="playlist.m3u"'
+    gerarPlaylistM3U(user).then(playlist => {
+      res.writeHead(200, {
+        'Content-Type': 'audio/x-mpegurl',
+        'Content-Disposition': 'attachment; filename="playlist.m3u"'
+      });
+      res.end(playlist);
+    }).catch(err => {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Erro ao gerar playlist: ' + err.message);
     });
-    res.end(playlist);
     return;
   }
 
@@ -162,10 +225,9 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        // Validar MAC
         if (mac && !validarMac(mac)) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido. Use: AA:BB:CC:DD:EE:FF ou AA:BB:CC:DD:EE:FF:GG:HH' }));
+          res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido' }));
           return;
         }
 
@@ -206,8 +268,7 @@ const server = http.createServer((req, res) => {
           success: true,
           data: novoUsuario,
           url: urlPlaylist,
-          urlMac: urlMac,
-          message: 'Usuário criado com sucesso!'
+          urlMac: urlMac
         }));
       } catch (error) {
         res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -253,16 +314,19 @@ const server = http.createServer((req, res) => {
   });
 });
 
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
 server.listen(PORT, () => {
   const ip = obterIpLocal();
   console.log('📺 IPTV Manager Pro - Servidor rodando!');
   console.log('🌐 Local: http://localhost:' + PORT);
   console.log('🌐 Rede: http://' + ip + ':' + PORT);
-  console.log('📋 Playlist: http://' + ip + ':' + PORT + '/playlist.m3u?username=USUARIO&password=SENHA');
-  console.log('📶 Playlist MAC: http://' + ip + ':' + PORT + '/playlist.m3u?mac=AA:BB:CC:DD:EE:FF');
+  console.log('📋 Playlist MAC: http://' + ip + ':' + PORT + '/playlist.m3u?mac=AA:BB:CC:DD:EE:FF');
   console.log('============================================');
 });
 
+// Salvar usuários automaticamente
 setInterval(() => {
   try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) {}
 }, 30000);
