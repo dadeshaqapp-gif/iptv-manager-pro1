@@ -1,0 +1,22 @@
+[
+  {
+    "id": "1",
+    "username": "demo",
+    "contato": "demo@email.com",
+    "password": "Demo@123",
+    "plano": "teste",
+    "data_expiracao": "2026-07-17T13:56:21.670Z",
+    "status": "ativo",
+    "mac_address": null
+  },
+  {
+    "id": "usr_1784213847245",
+    "username": "DadeShaq",
+    "contato": "dade@iptv.com",
+    "password": "fh7U%rv*Gr",
+    "plano": "anual",
+    "data_expiracao": "2027-07-16T14:57:27.245Z",
+    "status": "ativo",
+    "mac_address": "B3:18:F9:0B:61:02:08:7E"
+  }
+]

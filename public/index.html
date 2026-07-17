@@ -1,0 +1,109 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPTV Manager Pro</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>📺 IPTV Manager Pro</h1>
+      <p>Sistema Profissional de Gerenciamento de Assinaturas IPTV</p>
+    </header>
+
+    <div class="container">
+      <h2>➕ Criar Novo Usuário</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>👤 Usuário</label>
+          <input type="text" id="inputUsername" placeholder="Ex: joao123">
+        </div>
+        <div class="form-group">
+          <label>📧 Contato</label>
+          <input type="text" id="inputContato" placeholder="Email ou Telefone">
+        </div>
+        <div class="form-group">
+          <label>🔑 Senha</label>
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="inputPassword" placeholder="Senha" style="flex:1;">
+            <button onclick="gerarSenha()" class="btn-small">🎲</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>📋 Plano</label>
+          <select id="inputPlano">
+            <option value="teste">Teste (2h)</option>
+            <option value="mensal">Mensal (30d)</option>
+            <option value="trimestral">Trimestral (4m)</option>
+            <option value="anual">Anual (12m)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>📶 MAC Address</label>
+          <input type="text" id="inputMac" placeholder="AA:BB:CC:DD:EE:FF">
+          <small style="color:#556677;font-size:11px;">Formato: AA:BB:CC:DD:EE:FF</small>
+        </div>
+        <div class="form-group" style="justify-content:flex-end;">
+          <button onclick="criarUsuario()" class="btn-criar">➕ Criar Usuário</button>
+        </div>
+      </div>
+      <div id="mensagemFeedback" style="margin-top:12px;padding:10px;border-radius:8px;display:none;"></div>
+    </div>
+
+    <div class="container">
+      <h2>🎯 Gerar Credenciais Rápidas</h2>
+      <div class="btn-group">
+        <button onclick="gerarTeste()" class="btn-test">🎯 Teste (2h)</button>
+        <button onclick="gerarMensal()" class="btn-mensal">📅 Mensal (30d)</button>
+        <button onclick="gerarTrimestral()" class="btn-trimestral">📆 Trimestral (4m)</button>
+        <button onclick="gerarAnual()" class="btn-anual">📅 Anual (12m)</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2>📋 Usuários Cadastrados</h2>
+      <div class="filtros">
+        <input type="text" id="searchInput" placeholder="🔍 Buscar usuário..." onkeyup="filtrarUsuarios()">
+        <select id="filtroPlano" onchange="filtrarUsuarios()">
+          <option value="todos">Todos os planos</option>
+          <option value="teste">Teste</option>
+          <option value="mensal">Mensal</option>
+          <option value="trimestral">Trimestral</option>
+          <option value="anual">Anual</option>
+        </select>
+        <select id="filtroStatus" onchange="filtrarUsuarios()">
+          <option value="todos">Todos os status</option>
+          <option value="ativo">Ativo</option>
+          <option value="aviso-5dias">Expira em 5 dias</option>
+          <option value="aviso-1dia">Expira amanhã</option>
+          <option value="expirado">Expirado</option>
+        </select>
+        <span style="margin-left:auto;color:#8899aa;" id="totalRegistros">0 registros</span>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Usuário</th>
+              <th>Contato</th>
+              <th>Senha</th>
+              <th>Plano</th>
+              <th>Expiração</th>
+              <th>Status</th>
+              <th>📶 MAC</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="listaUsuarios">
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:#8899aa;">⏳ Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
