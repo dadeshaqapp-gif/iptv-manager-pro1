@@ -15,7 +15,6 @@ let usuarios = [];
 // ============================================
 const VECTOR_API_KEY = 'da33ff427d6631786a8cfa3626edf2f2ab67fba77dd32d0b48c62c782a55c6b4';
 const VECTOR_API_URL = 'https://vectorplayer.com/api/develop';
-const VECTOR_LISTA_ID = 1; // Altere para o ID da sua lista premium
 
 // ============================================
 // FUNÇÃO: OBTER IP LOCAL
@@ -46,12 +45,12 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR CANAIS DA API VECTOR PLAYER
+// FUNÇÃO: BUSCAR SERVIDORES DO VECTOR PLAYER
 // ============================================
-async function buscarCanaisVectorPlayer() {
+async function buscarServidoresVectorPlayer() {
   try {
-    const url = `${VECTOR_API_URL}/lista/${VECTOR_LISTA_ID}/channels`;
-    console.log('📡 Buscando canais do Vector Player...');
+    const url = `${VECTOR_API_URL}/listas`;
+    console.log('📡 Buscando servidores do Vector Player...');
 
     const response = await fetch(url, {
       headers: {
@@ -60,20 +59,16 @@ async function buscarCanaisVectorPlayer() {
       }
     });
 
-    console.log('📡 Status da resposta:', response.status);
-
     if (!response.ok) {
-      console.error('❌ Erro na API Vector Player:', response.status);
-      const erro = await response.text();
-      console.error('❌ Detalhes:', erro);
+      console.error('❌ Erro ao buscar servidores:', response.status);
       return [];
     }
 
     const data = await response.json();
-    console.log(`✅ ${data.data?.length || 0} canais carregados do Vector Player`);
+    console.log(`✅ ${data.total || 0} servidores encontrados`);
     return data.data || [];
   } catch (error) {
-    console.error('❌ Erro ao buscar canais:', error.message);
+    console.error('❌ Erro ao buscar servidores:', error.message);
     return [];
   }
 }
@@ -85,30 +80,37 @@ async function gerarPlaylistM3U(usuario) {
   const expiracao = new Date(usuario.data_expiracao);
   const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
   
-  // Buscar canais reais do Vector Player
-  let canais = await buscarCanaisVectorPlayer();
+  // Buscar servidores do Vector Player
+  const servidores = await buscarServidoresVectorPlayer();
   
-  // Fallback: canais de exemplo se a API falhar
-  if (!canais || canais.length === 0) {
-    console.log('⚠️ Usando canais de exemplo (fallback)');
-    canais = [
-      { nome: 'Globo HD', url: 'http://exemplo.com/globo.ts', logo: '' },
-      { nome: 'SBT HD', url: 'http://exemplo.com/sbt.ts', logo: '' },
-      { nome: 'Record HD', url: 'http://exemplo.com/record.ts', logo: '' },
-      { nome: 'CNN Brasil', url: 'http://exemplo.com/cnn.ts', logo: '' },
-      { nome: 'SporTV', url: 'http://exemplo.com/sportv.ts', logo: '' },
-      { nome: 'HBO', url: 'http://exemplo.com/hbo.ts', logo: '' }
-    ];
-  }
+  // Filtrar apenas servidores BR ativos
+  const servidoresBR = servidores.filter(s => s.is_br === 1 && s.status === 'Active');
+  
+  // Pegar os 5 primeiros servidores BR
+  const servidoresSelecionados = servidoresBR.slice(0, 5);
 
   let playlist = '#EXTM3U\n';
   playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
   playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
-  
-  canais.forEach(canal => {
-    const logo = canal.logo || canal.tvg_logo || '';
-    playlist += `#EXTINF:-1 tvg-logo="${logo}",${canal.nome}\n`;
-    playlist += canal.url + '\n';
+
+  if (servidoresSelecionados.length === 0) {
+    playlist += '#EXTINF:-1,⚠️ Nenhum servidor disponível\n';
+    playlist += 'http://exemplo.com/sem-servidor.ts\n';
+    return playlist;
+  }
+
+  // Para cada servidor, montar a URL da playlist Xtream Codes
+  servidoresSelecionados.forEach(servidor => {
+    const urlBase = servidor.url.replace(/\/$/, '');
+    const usuarioX = servidor.usuario;
+    const senhaX = servidor.senha;
+    const nomeServidor = servidor.usuario || 'Servidor';
+    
+    // Montar URL no formato Xtream Codes
+    const urlPlaylist = `${urlBase}/get.php?username=${usuarioX}&password=${senhaX}&type=m3u_plus&output=ts`;
+    
+    playlist += `#EXTINF:-1 tvg-logo="",📡 ${nomeServidor} (${servidor.id})\n`;
+    playlist += `${urlPlaylist}\n\n`;
   });
 
   return playlist;
@@ -326,7 +328,7 @@ server.listen(PORT, () => {
   console.log('📺 IPTV Manager Pro - Servidor rodando!');
   console.log('🌐 Local: http://localhost:' + PORT);
   console.log('🌐 Rede: http://' + ip + ':' + PORT);
-  console.log('📋 Playlist MAC: http://' + ip + ':' + PORT + '/playlist.m3u?mac=AA:BB:CC:DD:EE:FF');
+  console.log('📋 Playlist: http://' + ip + ':' + PORT + '/playlist.m3u?username=USUARIO&password=SENHA');
   console.log('============================================');
 });
 
