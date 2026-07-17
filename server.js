@@ -13,7 +13,7 @@ let usuarios = [];
 // ============================================
 // CONFIGURAÇÃO VECTOR PLAYER
 // ============================================
-const VECTOR_API_KEY = 'da33ff427d6631786a8cfa3626edf2f2ab67fba77dd32d0b48c62c782a55c6b4';
+const VECTOR_API_KEY = '94281efe5dcb09c000bf0cd825e856519219a41d54c31d32487baf1b2d6e6e51';
 const VECTOR_API_URL = 'https://vectorplayer.com/api/develop';
 
 // ============================================
@@ -83,11 +83,13 @@ async function gerarPlaylistM3U(usuario) {
   // Buscar servidores do Vector Player
   const servidores = await buscarServidoresVectorPlayer();
   
-  // Filtrar apenas servidores BR ativos
+  // Filtrar servidores BR ativos
   const servidoresBR = servidores.filter(s => s.is_br === 1 && s.status === 'Active');
   
-  // Pegar os 5 primeiros servidores BR
-  const servidoresSelecionados = servidoresBR.slice(0, 5);
+  console.log(`✅ ${servidoresBR.length} servidores BR ativos encontrados`);
+  
+  // Pegar os 10 primeiros servidores BR
+  const servidoresSelecionados = servidoresBR.slice(0, 10);
 
   let playlist = '#EXTM3U\n';
   playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
