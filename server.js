@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - SERVIDOR FIXO COM CANAIS
+// IPTV MANAGER PRO - COM GERAÇÃO AUTOMÁTICA DE URL
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -66,7 +66,6 @@ async function buscarCanaisDoServidor() {
         const playlist = await response.text();
         console.log(`✅ Playlist baixada com sucesso (${playlist.length} bytes)`);
         
-        // Extrair canais da playlist
         const linhas = playlist.split('\n');
         const canais = [];
         let canalAtual = null;
@@ -74,7 +73,6 @@ async function buscarCanaisDoServidor() {
         for (const linha of linhas) {
             const linhaLimpa = linha.trim();
             if (linhaLimpa.startsWith('#EXTINF:')) {
-                // Extrair nome do canal
                 const match = linhaLimpa.match(/,([^,]+)$/);
                 const nome = match ? match[1] : 'Canal';
                 canalAtual = { nome, url: '' };
@@ -112,7 +110,6 @@ async function gerarPlaylistM3U(usuario) {
         return playlist;
     }
 
-    // Limitar a 100 canais para não sobrecarregar
     const canaisSelecionados = canais.slice(0, 100);
     
     canaisSelecionados.forEach(canal => {
@@ -145,13 +142,23 @@ try {
         },
         {
             id: 'usr_1784213847245',
-            username: 'DadeShaq',
+            username: 'Dade',
             contato: 'dade@iptv.com',
             password: 'fh7U%rv*Gr',
             plano: 'anual',
             data_expiracao: '2027-07-16T14:57:27.245Z',
             status: 'ativo',
             mac_address: 'B3:18:F9:0B:61:02:08:7E'
+        },
+        {
+            id: 'usr_' + Date.now(),
+            username: 'teste',
+            contato: 'teste@teste.com',
+            password: '123456',
+            plano: 'mensal',
+            data_expiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'ativo',
+            mac_address: null
         }
     ];
     fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
@@ -295,15 +302,14 @@ const server = http.createServer((req, res) => {
                 fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
 
                 const ip = obterIpLocal();
-                const urlPlaylist = `http://${ip}:${PORT}/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
-                const urlMac = mac ? `http://${ip}:${PORT}/playlist.m3u?mac=${mac}` : null;
+                const urlGerada = `https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
 
                 res.writeHead(201, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: true,
                     data: novoUsuario,
-                    url: urlPlaylist,
-                    urlMac: urlMac
+                    url: urlGerada,
+                    message: 'Usuário criado com sucesso!'
                 }));
             } catch (error) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -357,7 +363,7 @@ server.listen(PORT, () => {
     console.log('📺 IPTV Manager Pro - Servidor rodando!');
     console.log('🌐 Local: http://localhost:' + PORT);
     console.log('🌐 Rede: http://' + ip + ':' + PORT);
-    console.log('📋 Playlist: http://' + ip + ':' + PORT + '/playlist.m3u?username=USUARIO&password=SENHA');
+    console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
     console.log('============================================');
 });
 
