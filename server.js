@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - SERVER OTIMIZADO
+// IPTV MANAGER PRO - COM TESTE DE SERVIDORES
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -67,6 +67,29 @@ function validarMac(mac) {
 }
 
 // ============================================
+// FUNÇÃO: TESTAR SERVIDOR
+// ============================================
+async function testarServidor(servidor) {
+    try {
+        const urlBase = servidor.url.replace(/\/$/, '');
+        const urlTeste = `${urlBase}/get.php?username=${servidor.usuario}&password=${servidor.senha}&type=m3u_plus&output=ts`;
+        
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000);
+        
+        const response = await fetch(urlTeste, {
+            method: 'HEAD',
+            signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        return response.ok;
+    } catch (error) {
+        return false;
+    }
+}
+
+// ============================================
 // FUNÇÃO: BUSCAR SERVIDORES DO VECTOR PLAYER
 // ============================================
 async function buscarServidoresVectorPlayer() {
@@ -112,38 +135,56 @@ async function gerarPlaylistM3U(usuario) {
         console.error('❌ Erro ao buscar servidores, usando fallback:', error.message);
     }
 
-    // Se não encontrou servidores, use fallback
     if (servidoresBR.length === 0) {
         console.log('⚠️ Nenhum servidor encontrado, usando servidores de fallback.');
         servidoresBR = FALLBACK_SERVERS;
     }
 
-    // Selecionar os 20 melhores servidores
-    const servidoresSelecionados = servidoresBR.slice(0, 20);
+    // Embaralhar para variar os servidores
+    const servidoresEmbaralhados = servidoresBR.sort(() => Math.random() - 0.5);
+    const servidoresParaTestar = servidoresEmbaralhados.slice(0, 30);
+
+    console.log(`🧪 Testando ${servidoresParaTestar.length} servidores...`);
+    
+    // Testar servidores em paralelo
+    const resultados = await Promise.all(
+        servidoresParaTestar.map(async (servidor) => {
+            const online = await testarServidor(servidor);
+            return { ...servidor, online };
+        })
+    );
+
+    // Filtrar apenas os online
+    const servidoresOnline = resultados.filter(s => s.online === true);
+    console.log(`✅ ${servidoresOnline.length} servidores online encontrados`);
+
+    // Selecionar até 10 servidores online
+    const servidoresSelecionados = servidoresOnline.slice(0, 10);
 
     let playlist = '#EXTM3U\n';
     playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
     playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
 
     if (servidoresSelecionados.length === 0) {
-        playlist += '#EXTINF:-1,⚠️ Nenhum servidor disponível\n';
-        playlist += 'http://exemplo.com/sem-servidor.ts\n';
+        console.log('⚠️ Nenhum servidor online, usando fallback sem teste.');
+        const fallback = servidoresBR.slice(0, 5);
+        fallback.forEach(servidor => {
+            const urlBase = servidor.url.replace(/\/$/, '');
+            const urlPlaylist = `${urlBase}/get.php?username=${servidor.usuario}&password=${servidor.senha}&type=m3u_plus&output=ts`;
+            playlist += `#EXTINF:-1 tvg-logo="",📡 ${servidor.usuario} (fallback)\n`;
+            playlist += `${urlPlaylist}\n\n`;
+        });
         return playlist;
     }
 
     servidoresSelecionados.forEach(servidor => {
         const urlBase = servidor.url.replace(/\/$/, '');
-        const usuarioX = servidor.usuario;
-        const senhaX = servidor.senha;
-        const nomeServidor = servidor.usuario || 'Servidor';
-
-        const urlPlaylist = `${urlBase}/get.php?username=${usuarioX}&password=${senhaX}&type=m3u_plus&output=ts`;
-
-        playlist += `#EXTINF:-1 tvg-logo="",📡 ${nomeServidor} (${servidor.id})\n`;
+        const urlPlaylist = `${urlBase}/get.php?username=${servidor.usuario}&password=${servidor.senha}&type=m3u_plus&output=ts`;
+        playlist += `#EXTINF:-1 tvg-logo="",📡 ${servidor.usuario} (${servidor.id}) ✅\n`;
         playlist += `${urlPlaylist}\n\n`;
     });
 
-    console.log(`✅ Playlist gerada com ${servidoresSelecionados.length} servidores`);
+    console.log(`✅ Playlist gerada com ${servidoresSelecionados.length} servidores online`);
     return playlist;
 }
 
