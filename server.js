@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - SERVIDOR FIXO
+// IPTV MANAGER PRO - SERVIDOR FIXO COM CANAIS
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
 // ============================================
-// SERVIDOR FIXO (CONFIRMADO FUNCIONANDO)
+// SERVIDOR FIXO
 // ============================================
 const SERVIDOR_FIXO = {
     url: 'http://play.dnsrot.vip:80',
@@ -48,24 +48,79 @@ function validarMac(mac) {
 }
 
 // ============================================
+// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR
+// ============================================
+async function buscarCanaisDoServidor() {
+    try {
+        const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
+        const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
+        
+        console.log(`📡 Baixando playlist do servidor fixo...`);
+        
+        const response = await fetch(urlPlaylist);
+        if (!response.ok) {
+            console.error('❌ Erro ao baixar playlist:', response.status);
+            return [];
+        }
+        
+        const playlist = await response.text();
+        console.log(`✅ Playlist baixada com sucesso (${playlist.length} bytes)`);
+        
+        // Extrair canais da playlist
+        const linhas = playlist.split('\n');
+        const canais = [];
+        let canalAtual = null;
+        
+        for (const linha of linhas) {
+            const linhaLimpa = linha.trim();
+            if (linhaLimpa.startsWith('#EXTINF:')) {
+                // Extrair nome do canal
+                const match = linhaLimpa.match(/,([^,]+)$/);
+                const nome = match ? match[1] : 'Canal';
+                canalAtual = { nome, url: '' };
+            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                canalAtual.url = linhaLimpa;
+                canais.push(canalAtual);
+                canalAtual = null;
+            }
+        }
+        
+        console.log(`✅ ${canais.length} canais encontrados`);
+        return canais;
+    } catch (error) {
+        console.error('❌ Erro ao buscar canais:', error.message);
+        return [];
+    }
+}
+
+// ============================================
 // FUNÇÃO: GERAR PLAYLIST M3U
 // ============================================
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
     const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
 
-    const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
-    const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
-
-    console.log(`📡 Gerando playlist com servidor fixo: ${SERVIDOR_FIXO.url}`);
+    const canais = await buscarCanaisDoServidor();
 
     let playlist = '#EXTM3U\n';
     playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
     playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
-    playlist += `#EXTINF:-1 tvg-logo="",📡 Servidor Fixo (${SERVIDOR_FIXO.usuario})\n`;
-    playlist += `${urlPlaylist}\n\n`;
 
-    console.log(`✅ Playlist gerada com servidor fixo`);
+    if (canais.length === 0) {
+        playlist += '#EXTINF:-1,⚠️ Nenhum canal disponível\n';
+        playlist += 'http://exemplo.com/sem-canal.ts\n';
+        return playlist;
+    }
+
+    // Limitar a 100 canais para não sobrecarregar
+    const canaisSelecionados = canais.slice(0, 100);
+    
+    canaisSelecionados.forEach(canal => {
+        playlist += `#EXTINF:-1 tvg-logo="",${canal.nome}\n`;
+        playlist += `${canal.url}\n\n`;
+    });
+
+    console.log(`✅ Playlist gerada com ${canaisSelecionados.length} canais`);
     return playlist;
 }
 
