@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM VECTOR PLAYER API
+// IPTV MANAGER PRO - SERVER OTIMIZADO
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -17,324 +17,373 @@ const VECTOR_API_KEY = '94281efe5dcb09c000bf0cd825e856519219a41d54c31d32487baf1b
 const VECTOR_API_URL = 'https://vectorplayer.com/api/develop';
 
 // ============================================
+// SERVIDORES DE FALLBACK (CONFIÁVEIS)
+// ============================================
+const FALLBACK_SERVERS = [
+    {
+        id: 1,
+        url: 'http://play.dnsrot.vip:80',
+        usuario: 'Farleyjm',
+        senha: 'yz6ncyyfadu',
+        is_br: 1,
+        status: 'Active'
+    },
+    {
+        id: 2,
+        url: 'http://mainxs.site:80',
+        usuario: 'Farleyjm',
+        senha: 'yz6ncyyfadu',
+        is_br: 1,
+        status: 'Active'
+    }
+];
+
+// ============================================
 // FUNÇÃO: OBTER IP LOCAL
 // ============================================
 function obterIpLocal() {
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const net of interfaces[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
-      }
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const net of interfaces[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                return net.address;
+            }
+        }
     }
-  }
-  return 'localhost';
+    return 'localhost';
 }
 
 // ============================================
 // FUNÇÃO: VALIDAR MAC
 // ============================================
 function validarMac(mac) {
-  if (!mac) return true;
-  mac = mac.trim().toUpperCase().replace(/\s/g, '');
-  const regex6 = /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/;
-  const regex8 = /^([0-9A-F]{2}[:-]){7}[0-9A-F]{2}$/;
-  const regex6sem = /^[0-9A-F]{12}$/;
-  const regex8sem = /^[0-9A-F]{16}$/;
-  return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
+    if (!mac) return true;
+    mac = mac.trim().toUpperCase().replace(/\s/g, '');
+    const regex6 = /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/;
+    const regex8 = /^([0-9A-F]{2}[:-]){7}[0-9A-F]{2}$/;
+    const regex6sem = /^[0-9A-F]{12}$/;
+    const regex8sem = /^[0-9A-F]{16}$/;
+    return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
 }
 
 // ============================================
 // FUNÇÃO: BUSCAR SERVIDORES DO VECTOR PLAYER
 // ============================================
 async function buscarServidoresVectorPlayer() {
-  try {
-    const url = `${VECTOR_API_URL}/listas`;
-    console.log('📡 Buscando servidores do Vector Player...');
+    try {
+        const url = `${VECTOR_API_URL}/listas`;
+        console.log('📡 Buscando servidores do Vector Player...');
 
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${VECTOR_API_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${VECTOR_API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
 
-    if (!response.ok) {
-      console.error('❌ Erro ao buscar servidores:', response.status);
-      return [];
+        if (!response.ok) {
+            console.error('❌ Erro ao buscar servidores:', response.status);
+            return [];
+        }
+
+        const data = await response.json();
+        console.log(`✅ ${data.total || 0} servidores encontrados`);
+        return data.data || [];
+    } catch (error) {
+        console.error('❌ Erro ao buscar servidores:', error.message);
+        return [];
     }
-
-    const data = await response.json();
-    console.log(`✅ ${data.total || 0} servidores encontrados`);
-    return data.data || [];
-  } catch (error) {
-    console.error('❌ Erro ao buscar servidores:', error.message);
-    return [];
-  }
 }
 
 // ============================================
 // FUNÇÃO: GERAR PLAYLIST M3U
 // ============================================
 async function gerarPlaylistM3U(usuario) {
-  const expiracao = new Date(usuario.data_expiracao);
-  const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
-  
-  // Buscar servidores do Vector Player
-  const servidores = await buscarServidoresVectorPlayer();
-  
-  // Filtrar servidores BR ativos
-  const servidoresBR = servidores.filter(s => s.is_br === 1 && s.status === 'Active');
-  
-  console.log(`✅ ${servidoresBR.length} servidores BR ativos encontrados`);
-  
-  // Pegar os 10 primeiros servidores BR
-  const servidoresSelecionados = servidoresBR.slice(0, 10);
+    const expiracao = new Date(usuario.data_expiracao);
+    const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
 
-  let playlist = '#EXTM3U\n';
-  playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
-  playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
+    let servidoresBR = [];
 
-  if (servidoresSelecionados.length === 0) {
-    playlist += '#EXTINF:-1,⚠️ Nenhum servidor disponível\n';
-    playlist += 'http://exemplo.com/sem-servidor.ts\n';
+    try {
+        const servidores = await buscarServidoresVectorPlayer();
+        servidoresBR = servidores.filter(s => s.is_br === 1 && s.status === 'Active');
+        console.log(`✅ ${servidoresBR.length} servidores BR ativos encontrados`);
+    } catch (error) {
+        console.error('❌ Erro ao buscar servidores, usando fallback:', error.message);
+    }
+
+    // Se não encontrou servidores, use fallback
+    if (servidoresBR.length === 0) {
+        console.log('⚠️ Nenhum servidor encontrado, usando servidores de fallback.');
+        servidoresBR = FALLBACK_SERVERS;
+    }
+
+    // Selecionar os 20 melhores servidores
+    const servidoresSelecionados = servidoresBR.slice(0, 20);
+
+    let playlist = '#EXTM3U\n';
+    playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
+    playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
+
+    if (servidoresSelecionados.length === 0) {
+        playlist += '#EXTINF:-1,⚠️ Nenhum servidor disponível\n';
+        playlist += 'http://exemplo.com/sem-servidor.ts\n';
+        return playlist;
+    }
+
+    servidoresSelecionados.forEach(servidor => {
+        const urlBase = servidor.url.replace(/\/$/, '');
+        const usuarioX = servidor.usuario;
+        const senhaX = servidor.senha;
+        const nomeServidor = servidor.usuario || 'Servidor';
+
+        const urlPlaylist = `${urlBase}/get.php?username=${usuarioX}&password=${senhaX}&type=m3u_plus&output=ts`;
+
+        playlist += `#EXTINF:-1 tvg-logo="",📡 ${nomeServidor} (${servidor.id})\n`;
+        playlist += `${urlPlaylist}\n\n`;
+    });
+
+    console.log(`✅ Playlist gerada com ${servidoresSelecionados.length} servidores`);
     return playlist;
-  }
-
-  // Para cada servidor, montar a URL da playlist Xtream Codes
-  servidoresSelecionados.forEach(servidor => {
-    const urlBase = servidor.url.replace(/\/$/, '');
-    const usuarioX = servidor.usuario;
-    const senhaX = servidor.senha;
-    const nomeServidor = servidor.usuario || 'Servidor';
-    
-    // Montar URL no formato Xtream Codes
-    const urlPlaylist = `${urlBase}/get.php?username=${usuarioX}&password=${senhaX}&type=m3u_plus&output=ts`;
-    
-    playlist += `#EXTINF:-1 tvg-logo="",📡 ${nomeServidor} (${servidor.id})\n`;
-    playlist += `${urlPlaylist}\n\n`;
-  });
-
-  return playlist;
 }
 
 // ============================================
 // CARREGAR USUÁRIOS
 // ============================================
 try {
-  const data = fs.readFileSync('usuarios.json', 'utf8');
-  usuarios = JSON.parse(data);
-  console.log('✅ Usuários carregados:', usuarios.length);
+    const data = fs.readFileSync('usuarios.json', 'utf8');
+    usuarios = JSON.parse(data);
+    console.log('✅ Usuários carregados:', usuarios.length);
 } catch (err) {
-  usuarios = [];
-  fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-  console.log('✅ usuarios.json criado');
+    usuarios = [
+        {
+            id: '1',
+            username: 'demo',
+            contato: 'demo@email.com',
+            password: 'Demo@123',
+            plano: 'teste',
+            data_expiracao: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            status: 'ativo',
+            mac_address: null
+        },
+        {
+            id: 'usr_1784213847245',
+            username: 'DadeShaq',
+            contato: 'dade@iptv.com',
+            password: 'fh7U%rv*Gr',
+            plano: 'anual',
+            data_expiracao: '2027-07-16T14:57:27.245Z',
+            status: 'ativo',
+            mac_address: 'B3:18:F9:0B:61:02:08:7E'
+        }
+    ];
+    fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
+    console.log('✅ usuarios.json criado');
 }
 
 // ============================================
 // FUNÇÕES DE VALIDAÇÃO
 // ============================================
 function validarUsuario(username, password) {
-  const user = usuarios.find(u => u.username === username && u.password === password);
-  if (!user) return null;
-  if (new Date() > new Date(user.data_expiracao)) return null;
-  return user;
+    const user = usuarios.find(u => u.username === username && u.password === password);
+    if (!user) return null;
+    if (new Date() > new Date(user.data_expiracao)) return null;
+    return user;
 }
 
 function validarPorMac(mac) {
-  if (!mac) return null;
-  const user = usuarios.find(u => u.mac_address === mac);
-  if (!user) return null;
-  if (new Date() > new Date(user.data_expiracao)) return null;
-  return user;
+    if (!mac) return null;
+    const user = usuarios.find(u => u.mac_address === mac);
+    if (!user) return null;
+    if (new Date() > new Date(user.data_expiracao)) return null;
+    return user;
 }
 
 // ============================================
 // CRIAR SERVIDOR
 // ============================================
 const server = http.createServer((req, res) => {
-  const parsedUrl = url.parse(req.url, true);
-  const pathname = parsedUrl.pathname;
+    const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname;
 
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-  if (req.method === 'OPTIONS') {
-    res.writeHead(200);
-    res.end();
-    return;
-  }
-
-  // ===== PLAYLIST =====
-  if (pathname === '/playlist.m3u') {
-    const username = parsedUrl.query.username;
-    const password = parsedUrl.query.password;
-    const mac = parsedUrl.query.mac;
-
-    let user = null;
-    if (mac) user = validarPorMac(mac);
-    else if (username && password) user = validarUsuario(username, password);
-
-    if (!user) {
-      res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Erro: Credenciais inválidas ou assinatura expirada');
-      return;
+    if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
     }
 
-    gerarPlaylistM3U(user).then(playlist => {
-      res.writeHead(200, {
-        'Content-Type': 'audio/x-mpegurl',
-        'Content-Disposition': 'attachment; filename="playlist.m3u"'
-      });
-      res.end(playlist);
-    }).catch(err => {
-      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('Erro ao gerar playlist: ' + err.message);
-    });
-    return;
-  }
+    // ===== PLAYLIST =====
+    if (pathname === '/playlist.m3u') {
+        const username = parsedUrl.query.username;
+        const password = parsedUrl.query.password;
+        const mac = parsedUrl.query.mac;
 
-  // ===== API: USUARIOS =====
-  if (pathname === '/api/usuarios' && req.method === 'GET') {
-    const usuariosLimpos = usuarios.map(u => ({
-      id: u.id,
-      username: u.username,
-      contato: u.contato || '-',
-      password: u.password,
-      plano: u.plano,
-      data_expiracao: u.data_expiracao,
-      status: u.status,
-      mac_address: u.mac_address || null
-    }));
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, data: usuariosLimpos }));
-    return;
-  }
+        let user = null;
+        if (mac) user = validarPorMac(mac);
+        else if (username && password) user = validarUsuario(username, password);
 
-  // ===== API: CRIAR =====
-  if (pathname === '/api/criar' && req.method === 'POST') {
-    let body = '';
-    req.on('data', chunk => { body += chunk; });
-    req.on('end', () => {
-      try {
-        const dados = JSON.parse(body);
-        const { username, password, plano, contato, mac } = dados;
-
-        if (!username || !password) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Usuário e senha obrigatórios' }));
-          return;
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Erro: Credenciais inválidas ou assinatura expirada');
+            return;
         }
 
-        if (usuarios.some(u => u.username === username)) {
-          res.writeHead(409, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Usuário já existe' }));
-          return;
-        }
+        gerarPlaylistM3U(user).then(playlist => {
+            res.writeHead(200, {
+                'Content-Type': 'audio/x-mpegurl',
+                'Content-Disposition': 'attachment; filename="playlist.m3u"'
+            });
+            res.end(playlist);
+        }).catch(err => {
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Erro ao gerar playlist: ' + err.message);
+        });
+        return;
+    }
 
-        if (mac && !validarMac(mac)) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido' }));
-          return;
-        }
-
-        if (mac && usuarios.some(u => u.mac_address === mac)) {
-          res.writeHead(409, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: 'MAC já está em uso' }));
-          return;
-        }
-
-        const duracaoMap = {
-          teste: 2 * 60 * 60 * 1000,
-          mensal: 30 * 24 * 60 * 60 * 1000,
-          trimestral: 120 * 24 * 60 * 60 * 1000,
-          anual: 365 * 24 * 60 * 60 * 1000
-        };
-        const dataExpiracao = new Date(Date.now() + (duracaoMap[plano] || duracaoMap.teste));
-
-        const novoUsuario = {
-          id: 'usr_' + Date.now(),
-          username: username,
-          contato: contato || 'Não informado',
-          password: password,
-          plano: plano || 'teste',
-          data_expiracao: dataExpiracao.toISOString(),
-          status: 'ativo',
-          mac_address: mac || null
-        };
-
-        usuarios.push(novoUsuario);
-        fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-
-        const ip = obterIpLocal();
-        const urlPlaylist = `http://${ip}:${PORT}/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
-        const urlMac = mac ? `http://${ip}:${PORT}/playlist.m3u?mac=${mac}` : null;
-
-        res.writeHead(201, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-          success: true,
-          data: novoUsuario,
-          url: urlPlaylist,
-          urlMac: urlMac
+    // ===== API: USUARIOS =====
+    if (pathname === '/api/usuarios' && req.method === 'GET') {
+        const usuariosLimpos = usuarios.map(u => ({
+            id: u.id,
+            username: u.username,
+            contato: u.contato || '-',
+            password: u.password,
+            plano: u.plano,
+            data_expiracao: u.data_expiracao,
+            status: u.status,
+            mac_address: u.mac_address || null
         }));
-      } catch (error) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: false, error: error.message }));
-      }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, data: usuariosLimpos }));
+        return;
+    }
+
+    // ===== API: CRIAR =====
+    if (pathname === '/api/criar' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const dados = JSON.parse(body);
+                const { username, password, plano, contato, mac } = dados;
+
+                if (!username || !password) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'Usuário e senha obrigatórios' }));
+                    return;
+                }
+
+                if (usuarios.some(u => u.username === username)) {
+                    res.writeHead(409, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'Usuário já existe' }));
+                    return;
+                }
+
+                if (mac && !validarMac(mac)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido' }));
+                    return;
+                }
+
+                if (mac && usuarios.some(u => u.mac_address === mac)) {
+                    res.writeHead(409, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'MAC já está em uso' }));
+                    return;
+                }
+
+                const duracaoMap = {
+                    teste: 2 * 60 * 60 * 1000,
+                    mensal: 30 * 24 * 60 * 60 * 1000,
+                    trimestral: 120 * 24 * 60 * 60 * 1000,
+                    anual: 365 * 24 * 60 * 60 * 1000
+                };
+                const dataExpiracao = new Date(Date.now() + (duracaoMap[plano] || duracaoMap.teste));
+
+                const novoUsuario = {
+                    id: 'usr_' + Date.now(),
+                    username: username,
+                    contato: contato || 'Não informado',
+                    password: password,
+                    plano: plano || 'teste',
+                    data_expiracao: dataExpiracao.toISOString(),
+                    status: 'ativo',
+                    mac_address: mac || null
+                };
+
+                usuarios.push(novoUsuario);
+                fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
+
+                const ip = obterIpLocal();
+                const urlPlaylist = `http://${ip}:${PORT}/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
+                const urlMac = mac ? `http://${ip}:${PORT}/playlist.m3u?mac=${mac}` : null;
+
+                res.writeHead(201, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    success: true,
+                    data: novoUsuario,
+                    url: urlPlaylist,
+                    urlMac: urlMac
+                }));
+            } catch (error) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
+    }
+
+    // ===== API: EXCLUIR =====
+    if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
+        const id = pathname.replace('/api/excluir/', '');
+        const index = usuarios.findIndex(u => u.id === id);
+        if (index === -1) {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Usuário não encontrado' }));
+            return;
+        }
+        usuarios.splice(index, 1);
+        fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: true, message: 'Usuário excluído' }));
+        return;
+    }
+
+    // ===== ARQUIVOS ESTÁTICOS =====
+    let filePath = '.' + pathname;
+    if (filePath === './') filePath = './public/index.html';
+    if (!filePath.startsWith('./public')) filePath = './public' + pathname;
+    const extname = path.extname(filePath);
+    let contentType = 'text/html';
+    if (extname === '.css') contentType = 'text/css';
+    if (extname === '.js') contentType = 'application/javascript';
+
+    fs.readFile(filePath, (error, content) => {
+        if (error) {
+            res.writeHead(404);
+            res.end('Arquivo não encontrado');
+        } else {
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(content);
+        }
     });
-    return;
-  }
-
-  // ===== API: EXCLUIR =====
-  if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
-    const id = pathname.replace('/api/excluir/', '');
-    const index = usuarios.findIndex(u => u.id === id);
-    if (index === -1) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ success: false, error: 'Usuário não encontrado' }));
-      return;
-    }
-    usuarios.splice(index, 1);
-    fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ success: true, message: 'Usuário excluído' }));
-    return;
-  }
-
-  // ===== ARQUIVOS ESTÁTICOS =====
-  let filePath = '.' + pathname;
-  if (filePath === './') filePath = './public/index.html';
-  if (!filePath.startsWith('./public')) filePath = './public' + pathname;
-  const extname = path.extname(filePath);
-  let contentType = 'text/html';
-  if (extname === '.css') contentType = 'text/css';
-  if (extname === '.js') contentType = 'application/javascript';
-
-  fs.readFile(filePath, (error, content) => {
-    if (error) {
-      res.writeHead(404);
-      res.end('Arquivo não encontrado');
-    } else {
-      res.writeHead(200, { 'Content-Type': contentType });
-      res.end(content);
-    }
-  });
 });
 
 // ============================================
 // INICIAR SERVIDOR
 // ============================================
 server.listen(PORT, () => {
-  const ip = obterIpLocal();
-  console.log('📺 IPTV Manager Pro - Servidor rodando!');
-  console.log('🌐 Local: http://localhost:' + PORT);
-  console.log('🌐 Rede: http://' + ip + ':' + PORT);
-  console.log('📋 Playlist: http://' + ip + ':' + PORT + '/playlist.m3u?username=USUARIO&password=SENHA');
-  console.log('============================================');
+    const ip = obterIpLocal();
+    console.log('📺 IPTV Manager Pro - Servidor rodando!');
+    console.log('🌐 Local: http://localhost:' + PORT);
+    console.log('🌐 Rede: http://' + ip + ':' + PORT);
+    console.log('📋 Playlist: http://' + ip + ':' + PORT + '/playlist.m3u?username=USUARIO&password=SENHA');
+    console.log('============================================');
 });
 
-// Salvar usuários automaticamente
 setInterval(() => {
-  try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) {}
+    try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
 }, 30000);
