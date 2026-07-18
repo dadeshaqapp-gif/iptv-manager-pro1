@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM TESTE DE SERVIDORES
+// IPTV MANAGER PRO - SERVIDOR FIXO
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -11,32 +11,13 @@ const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
 // ============================================
-// CONFIGURAÇÃO VECTOR PLAYER
+// SERVIDOR FIXO (CONFIRMADO FUNCIONANDO)
 // ============================================
-const VECTOR_API_KEY = '94281efe5dcb09c000bf0cd825e856519219a41d54c31d32487baf1b2d6e6e51';
-const VECTOR_API_URL = 'https://vectorplayer.com/api/develop';
-
-// ============================================
-// SERVIDORES DE FALLBACK (CONFIÁVEIS)
-// ============================================
-const FALLBACK_SERVERS = [
-    {
-        id: 1,
-        url: 'http://play.dnsrot.vip:80',
-        usuario: 'Farleyjm',
-        senha: 'yz6ncyyfadu',
-        is_br: 1,
-        status: 'Active'
-    },
-    {
-        id: 2,
-        url: 'http://mainxs.site:80',
-        usuario: 'Farleyjm',
-        senha: 'yz6ncyyfadu',
-        is_br: 1,
-        status: 'Active'
-    }
-];
+const SERVIDOR_FIXO = {
+    url: 'http://play.dnsrot.vip:80',
+    usuario: 'Farleyjm',
+    senha: 'yz6ncyyfadu'
+};
 
 // ============================================
 // FUNÇÃO: OBTER IP LOCAL
@@ -67,124 +48,24 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: TESTAR SERVIDOR
-// ============================================
-async function testarServidor(servidor) {
-    try {
-        const urlBase = servidor.url.replace(/\/$/, '');
-        const urlTeste = `${urlBase}/get.php?username=${servidor.usuario}&password=${servidor.senha}&type=m3u_plus&output=ts`;
-        
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        
-        const response = await fetch(urlTeste, {
-            method: 'HEAD',
-            signal: controller.signal
-        });
-        
-        clearTimeout(timeout);
-        return response.ok;
-    } catch (error) {
-        return false;
-    }
-}
-
-// ============================================
-// FUNÇÃO: BUSCAR SERVIDORES DO VECTOR PLAYER
-// ============================================
-async function buscarServidoresVectorPlayer() {
-    try {
-        const url = `${VECTOR_API_URL}/listas`;
-        console.log('📡 Buscando servidores do Vector Player...');
-
-        const response = await fetch(url, {
-            headers: {
-                'Authorization': `Bearer ${VECTOR_API_KEY}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            console.error('❌ Erro ao buscar servidores:', response.status);
-            return [];
-        }
-
-        const data = await response.json();
-        console.log(`✅ ${data.total || 0} servidores encontrados`);
-        return data.data || [];
-    } catch (error) {
-        console.error('❌ Erro ao buscar servidores:', error.message);
-        return [];
-    }
-}
-
-// ============================================
 // FUNÇÃO: GERAR PLAYLIST M3U
 // ============================================
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
     const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
 
-    let servidoresBR = [];
+    const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
+    const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
 
-    try {
-        const servidores = await buscarServidoresVectorPlayer();
-        servidoresBR = servidores.filter(s => s.is_br === 1 && s.status === 'Active');
-        console.log(`✅ ${servidoresBR.length} servidores BR ativos encontrados`);
-    } catch (error) {
-        console.error('❌ Erro ao buscar servidores, usando fallback:', error.message);
-    }
-
-    if (servidoresBR.length === 0) {
-        console.log('⚠️ Nenhum servidor encontrado, usando servidores de fallback.');
-        servidoresBR = FALLBACK_SERVERS;
-    }
-
-    // Embaralhar para variar os servidores
-    const servidoresEmbaralhados = servidoresBR.sort(() => Math.random() - 0.5);
-    const servidoresParaTestar = servidoresEmbaralhados.slice(0, 30);
-
-    console.log(`🧪 Testando ${servidoresParaTestar.length} servidores...`);
-    
-    // Testar servidores em paralelo
-    const resultados = await Promise.all(
-        servidoresParaTestar.map(async (servidor) => {
-            const online = await testarServidor(servidor);
-            return { ...servidor, online };
-        })
-    );
-
-    // Filtrar apenas os online
-    const servidoresOnline = resultados.filter(s => s.online === true);
-    console.log(`✅ ${servidoresOnline.length} servidores online encontrados`);
-
-    // Selecionar até 10 servidores online
-    const servidoresSelecionados = servidoresOnline.slice(0, 10);
+    console.log(`📡 Gerando playlist com servidor fixo: ${SERVIDOR_FIXO.url}`);
 
     let playlist = '#EXTM3U\n';
     playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
     playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
+    playlist += `#EXTINF:-1 tvg-logo="",📡 Servidor Fixo (${SERVIDOR_FIXO.usuario})\n`;
+    playlist += `${urlPlaylist}\n\n`;
 
-    if (servidoresSelecionados.length === 0) {
-        console.log('⚠️ Nenhum servidor online, usando fallback sem teste.');
-        const fallback = servidoresBR.slice(0, 5);
-        fallback.forEach(servidor => {
-            const urlBase = servidor.url.replace(/\/$/, '');
-            const urlPlaylist = `${urlBase}/get.php?username=${servidor.usuario}&password=${servidor.senha}&type=m3u_plus&output=ts`;
-            playlist += `#EXTINF:-1 tvg-logo="",📡 ${servidor.usuario} (fallback)\n`;
-            playlist += `${urlPlaylist}\n\n`;
-        });
-        return playlist;
-    }
-
-    servidoresSelecionados.forEach(servidor => {
-        const urlBase = servidor.url.replace(/\/$/, '');
-        const urlPlaylist = `${urlBase}/get.php?username=${servidor.usuario}&password=${servidor.senha}&type=m3u_plus&output=ts`;
-        playlist += `#EXTINF:-1 tvg-logo="",📡 ${servidor.usuario} (${servidor.id}) ✅\n`;
-        playlist += `${urlPlaylist}\n\n`;
-    });
-
-    console.log(`✅ Playlist gerada com ${servidoresSelecionados.length} servidores online`);
+    console.log(`✅ Playlist gerada com servidor fixo`);
     return playlist;
 }
 
