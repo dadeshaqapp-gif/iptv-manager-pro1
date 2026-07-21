@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM IPTV-ORG E SUPABASE
+// IPTV MANAGER PRO - COM SUPABASE E IPTV-ORG
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -14,15 +14,13 @@ const PORT = process.env.PORT || 8888;
 // CONFIGURAÇÃO SUPABASE
 // ============================================
 const SUPABASE_URL = 'https://oqzvockroewijqxainsq.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_7QT8jU1apZzyKUqCVCra6g_Wj6rh...';
+const SUPABASE_KEY = 'sb_publishable_7QTF8jU1apZzyKUqC...';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============================================
-// PLAYLIST IPTV-ORG (CANAL TV GARDEN)
+// PLAYLIST IPTV-ORG (TV GARDEN)
 // ============================================
 const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
-// Para apenas canais brasileiros, use:
-// const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/countries/br.m3u';
 
 // ============================================
 // SERVIDOR FIXO (FALLBACK)
@@ -128,7 +126,6 @@ async function buscarCanaisIPTVOrg() {
         for (const linha of linhas) {
             const linhaLimpa = linha.trim();
             if (linhaLimpa.startsWith('#EXTINF:')) {
-                // Extrair nome e logo do canal
                 const matchNome = linhaLimpa.match(/,([^,]+)$/);
                 const nome = matchNome ? matchNome[1] : 'Canal';
                 const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
@@ -159,7 +156,7 @@ async function gerarPlaylistM3U(usuario) {
     // Buscar canais do IPTV-org (TV Garden)
     let canais = await buscarCanaisIPTVOrg();
     
-    // Se não conseguir buscar do IPTV-org, usar o servidor fixo como fallback
+    // Se falhar, usar servidor fixo como fallback
     if (canais.length === 0) {
         console.log('⚠️ Usando servidor fixo como fallback...');
         canais = await buscarCanaisDoServidor();
@@ -175,7 +172,6 @@ async function gerarPlaylistM3U(usuario) {
         return playlist;
     }
 
-    // Limitar a 200 canais para não sobrecarregar
     const canaisSelecionados = canais.slice(0, 200);
     
     canaisSelecionados.forEach(canal => {
@@ -435,4 +431,3 @@ server.listen(PORT, () => {
     console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
     console.log('============================================');
 });
-
