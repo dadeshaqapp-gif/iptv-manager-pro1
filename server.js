@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM SUPABASE
+// IPTV MANAGER PRO - COM IPTV-ORG E SUPABASE
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -18,7 +18,14 @@ const SUPABASE_KEY = 'sb_publishable_7QT8jU1apZzyKUqCVCra6g_Wj6rhyla';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============================================
-// SERVIDOR FIXO
+// PLAYLIST IPTV-ORG (CANAL TV GARDEN)
+// ============================================
+const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
+// Para apenas canais brasileiros, use:
+// const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/countries/br.m3u';
+
+// ============================================
+// SERVIDOR FIXO (FALLBACK)
 // ============================================
 const SERVIDOR_FIXO = {
     url: 'http://play.dnsrot.vip:80',
@@ -55,7 +62,7 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR
+// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR (FALLBACK)
 // ============================================
 async function buscarCanaisDoServidor() {
     try {
@@ -99,13 +106,64 @@ async function buscarCanaisDoServidor() {
 }
 
 // ============================================
+// FUNÇÃO: BUSCAR CANAIS DO IPTV-ORG (TV GARDEN)
+// ============================================
+async function buscarCanaisIPTVOrg() {
+    try {
+        console.log('📡 Baixando playlist do IPTV-org (TV Garden)...');
+        
+        const response = await fetch(PLAYLIST_IPTV_ORG);
+        if (!response.ok) {
+            console.error('❌ Erro ao baixar playlist IPTV-org:', response.status);
+            return [];
+        }
+        
+        const playlist = await response.text();
+        console.log(`✅ Playlist IPTV-org baixada (${playlist.length} bytes)`);
+        
+        const linhas = playlist.split('\n');
+        const canais = [];
+        let canalAtual = null;
+        
+        for (const linha of linhas) {
+            const linhaLimpa = linha.trim();
+            if (linhaLimpa.startsWith('#EXTINF:')) {
+                // Extrair nome e logo do canal
+                const matchNome = linhaLimpa.match(/,([^,]+)$/);
+                const nome = matchNome ? matchNome[1] : 'Canal';
+                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
+                const logo = matchLogo ? matchLogo[1] : '';
+                canalAtual = { nome, url: '', logo };
+            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                canalAtual.url = linhaLimpa;
+                canais.push(canalAtual);
+                canalAtual = null;
+            }
+        }
+        
+        console.log(`✅ ${canais.length} canais encontrados no IPTV-org`);
+        return canais;
+    } catch (error) {
+        console.error('❌ Erro ao buscar playlist IPTV-org:', error.message);
+        return [];
+    }
+}
+
+// ============================================
 // FUNÇÃO: GERAR PLAYLIST M3U
 // ============================================
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
     const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
 
-    const canais = await buscarCanaisDoServidor();
+    // Buscar canais do IPTV-org (TV Garden)
+    let canais = await buscarCanaisIPTVOrg();
+    
+    // Se não conseguir buscar do IPTV-org, usar o servidor fixo como fallback
+    if (canais.length === 0) {
+        console.log('⚠️ Usando servidor fixo como fallback...');
+        canais = await buscarCanaisDoServidor();
+    }
 
     let playlist = '#EXTM3U\n';
     playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
@@ -117,10 +175,12 @@ async function gerarPlaylistM3U(usuario) {
         return playlist;
     }
 
-    const canaisSelecionados = canais.slice(0, 100);
+    // Limitar a 200 canais para não sobrecarregar
+    const canaisSelecionados = canais.slice(0, 200);
     
     canaisSelecionados.forEach(canal => {
-        playlist += `#EXTINF:-1 tvg-logo="",${canal.nome}\n`;
+        const logo = canal.logo || '';
+        playlist += `#EXTINF:-1 tvg-logo="${logo}",${canal.nome}\n`;
         playlist += `${canal.url}\n\n`;
     });
 
@@ -369,7 +429,7 @@ const server = http.createServer((req, res) => {
 // ============================================
 server.listen(PORT, () => {
     const ip = obterIpLocal();
-    console.log('📺 IPTV Manager Pro - Servidor rodando com Supabase!');
+    console.log('📺 IPTV Manager Pro - Servidor rodando com IPTV-org!');
     console.log('🌐 Local: http://localhost:' + PORT);
     console.log('🌐 Rede: http://' + ip + ':' + PORT);
     console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
