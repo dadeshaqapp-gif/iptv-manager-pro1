@@ -1,14 +1,21 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM GERAÇÃO AUTOMÁTICA DE URL
+// IPTV MANAGER PRO - COM SUPABASE
 // ============================================
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const os = require('os');
+const { createClient } = require('@supabase/supabase-js');
 
 const PORT = process.env.PORT || 8888;
-let usuarios = [];
+
+// ============================================
+// CONFIGURAÇÃO SUPABASE
+// ============================================
+const SUPABASE_URL = 'https://oqzvockroewijqxainsq.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_7QT8jU1apZzyKUqCVCra6g_Wj6rhyla';
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============================================
 // SERVIDOR FIXO
@@ -122,65 +129,88 @@ async function gerarPlaylistM3U(usuario) {
 }
 
 // ============================================
-// CARREGAR USUÁRIOS
+// FUNÇÕES DE VALIDAÇÃO COM SUPABASE
 // ============================================
-try {
-    const data = fs.readFileSync('usuarios.json', 'utf8');
-    usuarios = JSON.parse(data);
-    console.log('✅ Usuários carregados:', usuarios.length);
-} catch (err) {
-    usuarios = [
-        {
-            id: '1',
-            username: 'demo',
-            contato: 'demo@email.com',
-            password: 'Demo@123',
-            plano: 'teste',
-            data_expiracao: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            status: 'ativo',
-            mac_address: null
-        },
-        {
-            id: 'usr_1784213847245',
-            username: 'Dade',
-            contato: 'dade@iptv.com',
-            password: 'fh7U%rv*Gr',
-            plano: 'anual',
-            data_expiracao: '2027-07-16T14:57:27.245Z',
-            status: 'ativo',
-            mac_address: 'B3:18:F9:0B:61:02:08:7E'
-        },
-        {
-            id: 'usr_' + Date.now(),
-            username: 'teste',
-            contato: 'teste@teste.com',
-            password: '123456',
-            plano: 'mensal',
-            data_expiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            status: 'ativo',
-            mac_address: null
-        }
-    ];
-    fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-    console.log('✅ usuarios.json criado');
+async function validarUsuario(username, password) {
+    const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('username', username)
+        .eq('password', password)
+        .single();
+    
+    if (error || !data) return null;
+    if (new Date() > new Date(data.data_expiracao)) return null;
+    return data;
 }
 
-// ============================================
-// FUNÇÕES DE VALIDAÇÃO
-// ============================================
-function validarUsuario(username, password) {
-    const user = usuarios.find(u => u.username === username && u.password === password);
-    if (!user) return null;
-    if (new Date() > new Date(user.data_expiracao)) return null;
-    return user;
-}
-
-function validarPorMac(mac) {
+async function validarPorMac(mac) {
     if (!mac) return null;
-    const user = usuarios.find(u => u.mac_address === mac);
-    if (!user) return null;
-    if (new Date() > new Date(user.data_expiracao)) return null;
-    return user;
+    const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('mac_address', mac)
+        .single();
+    
+    if (error || !data) return null;
+    if (new Date() > new Date(data.data_expiracao)) return null;
+    return data;
+}
+
+// ============================================
+// FUNÇÃO: LISTAR USUÁRIOS
+// ============================================
+async function listarUsuarios() {
+    const { data, error } = await supabase
+        .from('usuarios')
+        .select('*');
+    
+    if (error) return [];
+    return data;
+}
+
+// ============================================
+// FUNÇÃO: CRIAR USUÁRIO
+// ============================================
+async function criarUsuario(dados) {
+    const { username, password, plano, contato, mac } = dados;
+    
+    const duracaoMap = {
+        teste: 2 * 60 * 60 * 1000,
+        mensal: 30 * 24 * 60 * 60 * 1000,
+        trimestral: 120 * 24 * 60 * 60 * 1000,
+        anual: 365 * 24 * 60 * 60 * 1000
+    };
+    const dataExpiracao = new Date(Date.now() + (duracaoMap[plano] || duracaoMap.teste));
+
+    const { data, error } = await supabase
+        .from('usuarios')
+        .insert([{
+            username,
+            password,
+            contato: contato || 'Não informado',
+            plano: plano || 'teste',
+            data_expiracao: dataExpiracao.toISOString(),
+            status: 'ativo',
+            mac_address: mac || null
+        }])
+        .select()
+        .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+}
+
+// ============================================
+// FUNÇÃO: EXCLUIR USUÁRIO
+// ============================================
+async function excluirUsuario(id) {
+    const { error } = await supabase
+        .from('usuarios')
+        .delete()
+        .eq('id', id);
+    
+    if (error) throw new Error(error.message);
 }
 
 // ============================================
@@ -206,43 +236,48 @@ const server = http.createServer((req, res) => {
         const password = parsedUrl.query.password;
         const mac = parsedUrl.query.mac;
 
-        let user = null;
-        if (mac) user = validarPorMac(mac);
-        else if (username && password) user = validarUsuario(username, password);
+        let userPromise = null;
+        if (mac) userPromise = validarPorMac(mac);
+        else if (username && password) userPromise = validarUsuario(username, password);
 
-        if (!user) {
+        if (!userPromise) {
             res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('Erro: Credenciais inválidas ou assinatura expirada');
             return;
         }
 
-        gerarPlaylistM3U(user).then(playlist => {
-            res.writeHead(200, {
-                'Content-Type': 'audio/x-mpegurl',
-                'Content-Disposition': 'attachment; filename="playlist.m3u"'
+        userPromise.then(user => {
+            if (!user) {
+                res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Erro: Credenciais inválidas ou assinatura expirada');
+                return;
+            }
+            gerarPlaylistM3U(user).then(playlist => {
+                res.writeHead(200, {
+                    'Content-Type': 'audio/x-mpegurl',
+                    'Content-Disposition': 'attachment; filename="playlist.m3u"'
+                });
+                res.end(playlist);
+            }).catch(err => {
+                res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Erro ao gerar playlist: ' + err.message);
             });
-            res.end(playlist);
         }).catch(err => {
             res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('Erro ao gerar playlist: ' + err.message);
+            res.end('Erro ao validar credenciais: ' + err.message);
         });
         return;
     }
 
     // ===== API: USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
-        const usuariosLimpos = usuarios.map(u => ({
-            id: u.id,
-            username: u.username,
-            contato: u.contato || '-',
-            password: u.password,
-            plano: u.plano,
-            data_expiracao: u.data_expiracao,
-            status: u.status,
-            mac_address: u.mac_address || null
-        }));
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, data: usuariosLimpos }));
+        listarUsuarios().then(usuarios => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: usuarios }));
+        }).catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: err.message }));
+        });
         return;
     }
 
@@ -261,56 +296,21 @@ const server = http.createServer((req, res) => {
                     return;
                 }
 
-                if (usuarios.some(u => u.username === username)) {
-                    res.writeHead(409, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ success: false, error: 'Usuário já existe' }));
-                    return;
-                }
+                criarUsuario({ username, password, plano, contato, mac }).then(novoUsuario => {
+                    const ip = obterIpLocal();
+                    const urlGerada = `https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
 
-                if (mac && !validarMac(mac)) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido' }));
-                    return;
-                }
-
-                if (mac && usuarios.some(u => u.mac_address === mac)) {
-                    res.writeHead(409, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ success: false, error: 'MAC já está em uso' }));
-                    return;
-                }
-
-                const duracaoMap = {
-                    teste: 2 * 60 * 60 * 1000,
-                    mensal: 30 * 24 * 60 * 60 * 1000,
-                    trimestral: 120 * 24 * 60 * 60 * 1000,
-                    anual: 365 * 24 * 60 * 60 * 1000
-                };
-                const dataExpiracao = new Date(Date.now() + (duracaoMap[plano] || duracaoMap.teste));
-
-                const novoUsuario = {
-                    id: 'usr_' + Date.now(),
-                    username: username,
-                    contato: contato || 'Não informado',
-                    password: password,
-                    plano: plano || 'teste',
-                    data_expiracao: dataExpiracao.toISOString(),
-                    status: 'ativo',
-                    mac_address: mac || null
-                };
-
-                usuarios.push(novoUsuario);
-                fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-
-                const ip = obterIpLocal();
-                const urlGerada = `https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
-
-                res.writeHead(201, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
-                    success: true,
-                    data: novoUsuario,
-                    url: urlGerada,
-                    message: 'Usuário criado com sucesso!'
-                }));
+                    res.writeHead(201, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({
+                        success: true,
+                        data: novoUsuario,
+                        url: urlGerada,
+                        message: 'Usuário criado com sucesso!'
+                    }));
+                }).catch(err => {
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: err.message }));
+                });
             } catch (error) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: false, error: error.message }));
@@ -322,16 +322,13 @@ const server = http.createServer((req, res) => {
     // ===== API: EXCLUIR =====
     if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
         const id = pathname.replace('/api/excluir/', '');
-        const index = usuarios.findIndex(u => u.id === id);
-        if (index === -1) {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: 'Usuário não encontrado' }));
-            return;
-        }
-        usuarios.splice(index, 1);
-        fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Usuário excluído' }));
+        excluirUsuario(id).then(() => {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Usuário excluído' }));
+        }).catch(err => {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: err.message }));
+        });
         return;
     }
 
@@ -360,13 +357,9 @@ const server = http.createServer((req, res) => {
 // ============================================
 server.listen(PORT, () => {
     const ip = obterIpLocal();
-    console.log('📺 IPTV Manager Pro - Servidor rodando!');
+    console.log('📺 IPTV Manager Pro - Servidor rodando com Supabase!');
     console.log('🌐 Local: http://localhost:' + PORT);
     console.log('🌐 Rede: http://' + ip + ':' + PORT);
     console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
     console.log('============================================');
 });
-
-setInterval(() => {
-    try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
-}, 30000);
