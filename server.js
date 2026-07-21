@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM SUPABASE E IPTV-ORG
+// IPTV MANAGER PRO - COM SUPABASE
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -153,10 +153,8 @@ async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
     const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
 
-    // Buscar canais do IPTV-org (TV Garden)
     let canais = await buscarCanaisIPTVOrg();
     
-    // Se falhar, usar servidor fixo como fallback
     if (canais.length === 0) {
         console.log('⚠️ Usando servidor fixo como fallback...');
         canais = await buscarCanaisDoServidor();
@@ -425,7 +423,7 @@ const server = http.createServer((req, res) => {
 // ============================================
 server.listen(PORT, () => {
     const ip = obterIpLocal();
-    console.log('📺 IPTV Manager Pro - Servidor rodando com IPTV-org!');
+    console.log('📺 IPTV Manager Pro - Servidor rodando com Supabase!');
     console.log('🌐 Local: http://localhost:' + PORT);
     console.log('🌐 Rede: http://' + ip + ':' + PORT);
     console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
