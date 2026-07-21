@@ -1,22 +1,22 @@
-[
+﻿[
   {
     "id": "1",
-    "username": "demo",
-    "contato": "demo@email.com",
-    "password": "Demo@123",
-    "plano": "teste",
-    "data_expiracao": "2026-07-17T13:56:21.670Z",
+    "username": "teste",
+    "contato": "teste@teste.com",
+    "password": "123456",
+    "plano": "mensal",
+    "data_expiracao": "2026-08-21T00:00:00.000Z",
     "status": "ativo",
     "mac_address": null
   },
   {
-    "id": "usr_1784213847245",
-    "username": "DadeShaq",
+    "id": "2",
+    "username": "Dade",
     "contato": "dade@iptv.com",
-    "password": "fh7U%rv*Gr",
+    "password": "123456",
     "plano": "anual",
-    "data_expiracao": "2027-07-16T14:57:27.245Z",
+    "data_expiracao": "2027-07-21T00:00:00.000Z",
     "status": "ativo",
-    "mac_address": "B3:18:F9:0B:61:02:08:7E"
+    "mac_address": null
   }
 ]
