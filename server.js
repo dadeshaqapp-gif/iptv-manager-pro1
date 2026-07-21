@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 8888;
 // CONFIGURAÇÃO SUPABASE
 // ============================================
 const SUPABASE_URL = 'https://oqzvockroewijqxainsq.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_7QTF8jU1apZzyKUqC...';
+const SUPABASE_KEY = 'sb_publishable_7QT8jU1apZzyKUqCVCra6g_Wj6rhyla';
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ============================================
@@ -429,3 +429,4 @@ server.listen(PORT, () => {
     console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
     console.log('============================================');
 });
+
