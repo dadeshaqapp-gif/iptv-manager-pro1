@@ -139,7 +139,10 @@ async function validarUsuario(username, password) {
         .eq('password', password)
         .single();
     
-    if (error || !data) return null;
+    if (error || !data) {
+        console.error('Erro ao validar usuário:', error);
+        return null;
+    }
     if (new Date() > new Date(data.data_expiracao)) return null;
     return data;
 }
@@ -152,7 +155,10 @@ async function validarPorMac(mac) {
         .eq('mac_address', mac)
         .single();
     
-    if (error || !data) return null;
+    if (error || !data) {
+        console.error('Erro ao validar MAC:', error);
+        return null;
+    }
     if (new Date() > new Date(data.data_expiracao)) return null;
     return data;
 }
@@ -165,7 +171,10 @@ async function listarUsuarios() {
         .from('usuarios')
         .select('*');
     
-    if (error) return [];
+    if (error) {
+        console.error('Erro ao listar usuários:', error);
+        return [];
+    }
     return data;
 }
 
@@ -197,7 +206,10 @@ async function criarUsuario(dados) {
         .select()
         .single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+        console.error('Erro ao criar usuário:', error);
+        throw new Error(error.message);
+    }
     return data;
 }
 
