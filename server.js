@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - MÚLTIPLAS FONTES
+// IPTV MANAGER PRO - PRIORIDADE AO SERVIDOR FIXO
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -14,55 +14,31 @@ let usuarios = [];
 // CONFIGURAÇÃO - FONTES DE PLAYLISTS
 // ============================================
 const FONTES = {
-    // Playlists por país
     MUNDO: 'https://iptv-org.github.io/iptv/index.m3u',
     BRASIL: 'https://iptv-org.github.io/iptv/countries/br.m3u',
     PORTUGAL: 'https://iptv-org.github.io/iptv/countries/pt.m3u',
+    PORTUGAL_2: 'https://iptv-org.github.io/iptv/languages/pt.m3u',
     ANGOLA: 'https://iptv-org.github.io/iptv/countries/ao.m3u',
     MOCAMBIQUE: 'https://iptv-org.github.io/iptv/countries/mz.m3u',
-    EUA: 'https://iptv-org.github.io/iptv/countries/us.m3u',
-    REINO_UNIDO: 'https://iptv-org.github.io/iptv/countries/gb.m3u',
-    ESPANHA: 'https://iptv-org.github.io/iptv/countries/es.m3u',
-    FRANCA: 'https://iptv-org.github.io/iptv/countries/fr.m3u',
-    ITALIA: 'https://iptv-org.github.io/iptv/countries/it.m3u',
-    ALEMANHA: 'https://iptv-org.github.io/iptv/countries/de.m3u',
-    
-    // Categorias
     ESPORTE: 'https://iptv-org.github.io/iptv/categories/sports.m3u',
     NOTICIAS: 'https://iptv-org.github.io/iptv/categories/news.m3u',
     FILMES: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
-    SERIES: 'https://iptv-org.github.io/iptv/categories/series.m3u',
     INFANTIL: 'https://iptv-org.github.io/iptv/categories/kids.m3u',
-    MUSICA: 'https://iptv-org.github.io/iptv/categories/music.m3u',
-    EDUCATIVO: 'https://iptv-org.github.io/iptv/categories/education.m3u',
-    RELIGIAO: 'https://iptv-org.github.io/iptv/categories/religious.m3u',
-    ENTRETENIMENTO: 'https://iptv-org.github.io/iptv/categories/entertainment.m3u',
-    VAREJO: 'https://iptv-org.github.io/iptv/categories/shopping.m3u',
 };
 
 // ============================================
-// CANAIS FIXOS (ZAP, TV GLOBO, SIC, TVI, etc.)
+// SERVIDOR FIXO (VECTOR PLAYER - PRIORITÁRIO)
+// ============================================
+const SERVIDOR_FIXO = {
+    url: 'http://play.dnsrot.vip:80',
+    usuario: 'Farleyjm',
+    senha: 'yz6ncyyfadu'
+};
+
+// ============================================
+// CANAIS FIXOS (ZAP, RTP, SIC, TVI, Globo, etc.)
 // ============================================
 const CANAIS_FIXOS = [
-    // Portugal
-    { nome: 'RTP 1 HD', url: 'https://stream.rtp.pt/rtp1', pais: 'PT' },
-    { nome: 'RTP 2 HD', url: 'https://stream.rtp.pt/rtp2', pais: 'PT' },
-    { nome: 'RTP 3 HD', url: 'https://stream.rtp.pt/rtp3', pais: 'PT' },
-    { nome: 'RTP Internacional', url: 'https://stream.rtp.pt/internacional', pais: 'PT' },
-    { nome: 'SIC HD', url: 'https://stream.sic.pt/sic', pais: 'PT' },
-    { nome: 'SIC Notícias HD', url: 'https://stream.sic.pt/noticias', pais: 'PT' },
-    { nome: 'SIC Radical HD', url: 'https://stream.sic.pt/radical', pais: 'PT' },
-    { nome: 'SIC Mulher', url: 'https://stream.sic.pt/mulher', pais: 'PT' },
-    { nome: 'SIC K', url: 'https://stream.sic.pt/k', pais: 'PT' },
-    { nome: 'TVI HD', url: 'https://stream.tvi.pt/tvi', pais: 'PT' },
-    { nome: 'TVI 24 HD', url: 'https://stream.tvi.pt/24', pais: 'PT' },
-    { nome: 'TVI Reality', url: 'https://stream.tvi.pt/reality', pais: 'PT' },
-    { nome: 'TVI Ficção', url: 'https://stream.tvi.pt/ficcao', pais: 'PT' },
-    { nome: 'CMTV', url: 'https://stream.cmtv.pt/cmtv', pais: 'PT' },
-    { nome: 'Porto Canal', url: 'https://stream.portocanal.pt/portocanal', pais: 'PT' },
-    { nome: 'RTP Açores', url: 'https://stream.rtp.pt/acores', pais: 'PT' },
-    { nome: 'RTP Madeira', url: 'https://stream.rtp.pt/madeira', pais: 'PT' },
-    { nome: 'Canal 11', url: 'https://stream.canal11.pt/canal11', pais: 'PT' },
     // Angola - ZAP
     { nome: 'ZAP Novelas', url: 'https://stream.zap.ao/novelas', pais: 'AO' },
     { nome: 'ZAP Viva', url: 'https://stream.zap.ao/viva', pais: 'AO' },
@@ -74,40 +50,41 @@ const CANAIS_FIXOS = [
     { nome: 'ZAP Kids', url: 'https://stream.zap.ao/kids', pais: 'AO' },
     
     // Portugal
-    { nome: 'RTP 1', url: 'https://stream.rtp.pt/rtp1', pais: 'PT' },
-    { nome: 'RTP 2', url: 'https://stream.rtp.pt/rtp2', pais: 'PT' },
-    { nome: 'RTP 3', url: 'https://stream.rtp.pt/rtp3', pais: 'PT' },
-    { nome: 'SIC', url: 'https://stream.sic.pt/sic', pais: 'PT' },
-    { nome: 'SIC Notícias', url: 'https://stream.sic.pt/noticias', pais: 'PT' },
-    { nome: 'SIC Radical', url: 'https://stream.sic.pt/radical', pais: 'PT' },
-    { nome: 'TVI', url: 'https://stream.tvi.pt/tvi', pais: 'PT' },
-    { nome: 'TVI 24', url: 'https://stream.tvi.pt/24', pais: 'PT' },
+    { nome: 'RTP 1 HD', url: 'https://stream.rtp.pt/rtp1', pais: 'PT' },
+    { nome: 'RTP 2 HD', url: 'https://stream.rtp.pt/rtp2', pais: 'PT' },
+    { nome: 'RTP 3 HD', url: 'https://stream.rtp.pt/rtp3', pais: 'PT' },
+    { nome: 'RTP Internacional', url: 'https://stream.rtp.pt/internacional', pais: 'PT' },
+    { nome: 'RTP Açores', url: 'https://stream.rtp.pt/acores', pais: 'PT' },
+    { nome: 'RTP Madeira', url: 'https://stream.rtp.pt/madeira', pais: 'PT' },
+    { nome: 'SIC HD', url: 'https://stream.sic.pt/sic', pais: 'PT' },
+    { nome: 'SIC Notícias HD', url: 'https://stream.sic.pt/noticias', pais: 'PT' },
+    { nome: 'SIC Radical HD', url: 'https://stream.sic.pt/radical', pais: 'PT' },
+    { nome: 'SIC Mulher', url: 'https://stream.sic.pt/mulher', pais: 'PT' },
+    { nome: 'SIC K', url: 'https://stream.sic.pt/k', pais: 'PT' },
+    { nome: 'TVI HD', url: 'https://stream.tvi.pt/tvi', pais: 'PT' },
+    { nome: 'TVI 24 HD', url: 'https://stream.tvi.pt/24', pais: 'PT' },
     { nome: 'TVI Reality', url: 'https://stream.tvi.pt/reality', pais: 'PT' },
+    { nome: 'TVI Ficção', url: 'https://stream.tvi.pt/ficcao', pais: 'PT' },
     { nome: 'CMTV', url: 'https://stream.cmtv.pt/cmtv', pais: 'PT' },
+    { nome: 'Porto Canal', url: 'https://stream.portocanal.pt/portocanal', pais: 'PT' },
+    { nome: 'Canal 11', url: 'https://stream.canal11.pt/canal11', pais: 'PT' },
     
     // Brasil
-    { nome: 'TV Globo', url: 'https://stream.globo.com/globo', pais: 'BR' },
+    { nome: 'TV Globo HD', url: 'https://stream.globo.com/globo', pais: 'BR' },
     { nome: 'Globo News', url: 'https://stream.globo.com/news', pais: 'BR' },
-    { nome: 'SBT', url: 'https://stream.sbt.com/sbt', pais: 'BR' },
-    { nome: 'Record TV', url: 'https://stream.record.com/record', pais: 'BR' },
-    { nome: 'Band', url: 'https://stream.band.com/band', pais: 'BR' },
+    { nome: 'SBT HD', url: 'https://stream.sbt.com/sbt', pais: 'BR' },
+    { nome: 'Record TV HD', url: 'https://stream.record.com/record', pais: 'BR' },
+    { nome: 'Band HD', url: 'https://stream.band.com/band', pais: 'BR' },
     { nome: 'CNN Brasil', url: 'https://stream.cnnbrasil.com/cnn', pais: 'BR' },
     { nome: 'Globo Play', url: 'https://stream.globo.com/play', pais: 'BR' },
+    { nome: 'Rede TV', url: 'https://stream.redetv.com/redetv', pais: 'BR' },
     
     // Moçambique
     { nome: 'TVM', url: 'https://stream.tvm.co.mz/tvm', pais: 'MZ' },
     { nome: 'Stv', url: 'https://stream.stv.co.mz/stv', pais: 'MZ' },
     { nome: 'Miramar', url: 'https://stream.miramar.co.mz/miramar', pais: 'MZ' },
+    { nome: 'Rádio Moçambique', url: 'https://stream.rm.co.mz/rm', pais: 'MZ' },
 ];
-
-// ============================================
-// SERVIDOR FIXO (FALLBACK)
-// ============================================
-const SERVIDOR_FIXO = {
-    url: 'http://play.dnsrot.vip:80',
-    usuario: 'Farleyjm',
-    senha: 'yz6ncyyfadu'
-};
 
 // ============================================
 // FUNÇÃO: OBTER IP LOCAL
@@ -138,117 +115,58 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR TODAS AS FONTES
-// ============================================
-async function buscarTodasAsFontes() {
-    const todosCanais = [];
-    const vistos = new Set();
-
-    // Lista de fontes para buscar
-    const fontesParaBuscar = [
-        { url: FONTES.MUNDO, nome: '🌍 Mundo' },
-        { url: FONTES.BRASIL, nome: '🇧🇷 Brasil' },
-        { url: FONTES.PORTUGAL, nome: '🇵🇹 Portugal' },
-        { url: FONTES.ANGOLA, nome: '🇦🇴 Angola' },
-        { url: FONTES.MOCAMBIQUE, nome: '🇲🇿 Moçambique' },
-        { url: FONTES.EUA, nome: '🇺🇸 EUA' },
-        { url: FONTES.REINO_UNIDO, nome: '🇬🇧 Reino Unido' },
-        { url: FONTES.ESPANHA, nome: '🇪🇸 Espanha' },
-        { url: FONTES.FRANCA, nome: '🇫🇷 França' },
-        { url: FONTES.ITALIA, nome: '🇮🇹 Itália' },
-        { url: FONTES.ALEMANHA, nome: '🇩🇪 Alemanha' },
-        { url: FONTES.ESPORTE, nome: '⚽ Esportes' },
-        { url: FONTES.NOTICIAS, nome: '📰 Notícias' },
-        { url: FONTES.FILMES, nome: '🎬 Filmes' },
-        { url: FONTES.SERIES, nome: '📺 Séries' },
-        { url: FONTES.INFANTIL, nome: '🧒 Infantil' },
-        { url: FONTES.MUSICA, nome: '🎵 Música' },
-        { url: FONTES.EDUCATIVO, nome: '📚 Educativo' },
-        { url: FONTES.RELIGIAO, nome: '⛪ Religião' },
-        { url: FONTES.ENTRETENIMENTO, nome: '🎭 Entretenimento' },
-        { url: FONTES.VAREJO, nome: '🛒 Varejo' },
-    ];
-
-    for (const fonte of fontesParaBuscar) {
-        try {
-            console.log(`📡 Buscando ${fonte.nome}...`);
-            const response = await fetch(fonte.url);
-            if (!response.ok) {
-                console.log(`⚠️ ${fonte.nome} não disponível (${response.status})`);
-                continue;
-            }
-            const playlist = await response.text();
-            const linhas = playlist.split('\n');
-            let canalAtual = null;
-            let count = 0;
-
-            for (const linha of linhas) {
-                const linhaLimpa = linha.trim();
-                if (linhaLimpa.startsWith('#EXTINF:')) {
-                    const matchNome = linhaLimpa.match(/,([^,]+)$/);
-                    const nome = matchNome ? matchNome[1] : 'Canal';
-                    const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
-                    const logo = matchLogo ? matchLogo[1] : '';
-                    const matchGrupo = linhaLimpa.match(/group-title="([^"]+)"/);
-                    const grupo = matchGrupo ? matchGrupo[1] : fonte.nome;
-                    canalAtual = { nome, url: '', logo, grupo, fonte: fonte.nome };
-                } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
-                    canalAtual.url = linhaLimpa;
-                    const key = canalAtual.nome + '|' + canalAtual.url;
-                    if (!vistos.has(key)) {
-                        vistos.add(key);
-                        todosCanais.push(canalAtual);
-                        count++;
-                    }
-                    canalAtual = null;
-                }
-            }
-            console.log(`✅ ${fonte.nome}: ${count} canais adicionados`);
-        } catch (error) {
-            console.error(`❌ Erro ao buscar ${fonte.nome}:`, error.message);
-        }
-    }
-
-    // Adicionar canais fixos (ZAP, RTP, SIC, TVI, Globo, etc.)
-    for (const canal of CANAIS_FIXOS) {
-        const key = canal.nome + '|' + canal.url;
-        if (!vistos.has(key)) {
-            vistos.add(key);
-            const emojiPais = {
-                'AO': '🇦🇴',
-                'PT': '🇵🇹',
-                'BR': '🇧🇷',
-                'MZ': '🇲🇿'
-            };
-            const emoji = emojiPais[canal.pais] || '📺';
-            todosCanais.push({
-                ...canal,
-                logo: '',
-                grupo: `📡 ${emoji} ${canal.pais}`,
-                fonte: 'Fixos'
-            });
-        }
-    }
-
-    console.log(`✅ Total: ${todosCanais.length} canais únicos`);
-    return todosCanais;
-}
-
-// ============================================
-// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR (FALLBACK)
+// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR FIXO (PRIORITÁRIO)
 // ============================================
 async function buscarCanaisDoServidor() {
     try {
         const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
         const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
-        console.log('📡 Baixando playlist do servidor fixo...');
+        console.log('📡 [PRIORITÁRIO] Baixando playlist do servidor fixo...');
         const response = await fetch(urlPlaylist);
         if (!response.ok) {
-            console.error('❌ Erro ao baixar playlist:', response.status);
+            console.error('❌ Erro ao baixar playlist do servidor fixo:', response.status);
             return [];
         }
         const playlist = await response.text();
-        console.log(`✅ Playlist baixada (${playlist.length} bytes)`);
+        console.log(`✅ [PRIORITÁRIO] Playlist baixada (${playlist.length} bytes)`);
+        const linhas = playlist.split('\n');
+        const canais = [];
+        let canalAtual = null;
+        for (const linha of linhas) {
+            const linhaLimpa = linha.trim();
+            if (linhaLimpa.startsWith('#EXTINF:')) {
+                const match = linhaLimpa.match(/,([^,]+)$/);
+                const nome = match ? match[1] : 'Canal';
+                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
+                const logo = matchLogo ? matchLogo[1] : '';
+                canalAtual = { nome, url: '', logo };
+            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                canalAtual.url = linhaLimpa;
+                canais.push(canalAtual);
+                canalAtual = null;
+            }
+        }
+        console.log(`✅ ${canais.length} canais do servidor fixo`);
+        return canais;
+    } catch (error) {
+        console.error('❌ Erro no servidor fixo:', error.message);
+        return [];
+    }
+}
+
+// ============================================
+// FUNÇÃO: BUSCAR CANAIS DO IPTV-ORG (FALLBACK)
+// ============================================
+async function buscarCanaisIPTVOrg() {
+    try {
+        console.log('📡 [FALLBACK] Buscando canais do IPTV-org...');
+        const response = await fetch(FONTES.PORTUGAL);
+        if (!response.ok) {
+            console.error('❌ Erro no IPTV-org:', response.status);
+            return [];
+        }
+        const playlist = await response.text();
+        console.log(`✅ Playlist IPTV-org baixada (${playlist.length} bytes)`);
         const linhas = playlist.split('\n');
         const canais = [];
         let canalAtual = null;
@@ -264,16 +182,16 @@ async function buscarCanaisDoServidor() {
                 canalAtual = null;
             }
         }
-        console.log(`✅ ${canais.length} canais do fallback`);
+        console.log(`✅ ${canais.length} canais do IPTV-org`);
         return canais;
     } catch (error) {
-        console.error('❌ Erro:', error.message);
+        console.error('❌ Erro IPTV-org:', error.message);
         return [];
     }
 }
 
 // ============================================
-// FUNÇÃO: GERAR PLAYLIST M3U
+// FUNÇÃO: GERAR PLAYLIST M3U (COM PRIORIDADE AO FIXO)
 // ============================================
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
@@ -281,11 +199,24 @@ async function gerarPlaylistM3U(usuario) {
 
     console.log(`📡 Gerando playlist para ${usuario.username}...`);
 
-    let canais = await buscarTodasAsFontes();
-
+    // 1️⃣ PRIORIDADE: Servidor Fixo (Vector Player)
+    let canais = await buscarCanaisDoServidor();
+    
+    // 2️⃣ FALLBACK: IPTV-org (se o fixo falhar)
     if (canais.length === 0) {
-        console.log('⚠️ Nenhum canal encontrado, usando servidor fixo...');
-        canais = await buscarCanaisDoServidor();
+        console.log('⚠️ Servidor fixo falhou, usando IPTV-org como fallback...');
+        canais = await buscarCanaisIPTVOrg();
+    }
+
+    // 3️⃣ ÚLTIMO RECURSO: Canais Fixos (ZAP, RTP, SIC, etc.)
+    if (canais.length === 0) {
+        console.log('⚠️ Todas as fontes falharam, usando canais fixos...');
+        canais = CANAIS_FIXOS.map(c => ({
+            nome: c.nome,
+            url: c.url,
+            logo: '',
+            grupo: `📡 ${c.pais}`
+        }));
     }
 
     // Limitar a 5000 canais para performance
@@ -298,7 +229,7 @@ async function gerarPlaylistM3U(usuario) {
     // Agrupar por grupo
     const grupos = {};
     canaisSelecionados.forEach(canal => {
-        const grupo = canal.grupo || canal.fonte || 'Outros';
+        const grupo = canal.grupo || 'Canais';
         if (!grupos[grupo]) grupos[grupo] = [];
         grupos[grupo].push(canal);
     });
@@ -553,7 +484,7 @@ const server = http.createServer((req, res) => {
 // ============================================
 server.listen(PORT, () => {
     const ip = obterIpLocal();
-    console.log('📺 IPTV Manager Pro - Servidor rodando!');
+    console.log('📺 IPTV Manager Pro - Servidor rodando com prioridade ao servidor fixo!');
     console.log('🌐 Local: http://localhost:' + PORT);
     console.log('🌐 Rede: http://' + ip + ':' + PORT);
     console.log('📋 Playlist: https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=USUARIO&password=SENHA');
@@ -564,5 +495,3 @@ server.listen(PORT, () => {
 setInterval(() => {
     try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
 }, 30000);
-
-
