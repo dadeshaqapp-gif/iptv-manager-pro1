@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM JSON LOCAL
+// IPTV MANAGER PRO - DIAGNÓSTICO
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -8,33 +8,66 @@ const url = require('url');
 const os = require('os');
 
 const PORT = process.env.PORT || 8888;
-let usuarios = [];
 
 // ============================================
 // CARREGAR USUÁRIOS DO JSON
 // ============================================
+let usuarios = [];
 try {
     const data = fs.readFileSync('usuarios.json', 'utf8');
     usuarios = JSON.parse(data);
-    console.log(`✅ Usuários carregados: ${usuarios.length}`);
+    console.log(`✅ [DIAG] Usuários carregados do JSON: ${usuarios.length}`);
+    console.log(`✅ [DIAG] Conteúdo: ${JSON.stringify(usuarios)}`);
 } catch (err) {
-    console.error('❌ Erro ao carregar usuários:', err.message);
-    usuarios = [];
+    console.error(`❌ [DIAG] Erro ao carregar JSON: ${err.message}`);
+    // Criar usuários de emergência
+    usuarios = [
+        {
+            id: '1',
+            username: 'teste',
+            contato: 'teste@teste.com',
+            password: '123456',
+            plano: 'mensal',
+            data_expiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'ativo',
+            mac_address: null
+        },
+        {
+            id: '2',
+            username: 'Dade',
+            contato: 'dade@iptv.com',
+            password: '123456',
+            plano: 'anual',
+            data_expiracao: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'ativo',
+            mac_address: null
+        }
+    ];
+    fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
+    console.log(`✅ [DIAG] Usuários de emergência criados: ${usuarios.length}`);
 }
 
 // ============================================
-// PLAYLIST IPTV-ORG (TV GARDEN)
+// FUNÇÃO: LISTAR USUÁRIOS (COM LOG)
 // ============================================
-const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
+function listarUsuarios() {
+    console.log(`📡 [DIAG] listarUsuarios() chamada. Total: ${usuarios.length}`);
+    return usuarios;
+}
 
 // ============================================
-// SERVIDOR FIXO (FALLBACK)
+// FUNÇÃO: VALIDAR USUÁRIO
 // ============================================
-const SERVIDOR_FIXO = {
-    url: 'http://play.dnsrot.vip:80',
-    usuario: 'Farleyjm',
-    senha: 'yz6ncyyfadu'
-};
+function validarUsuario(username, password) {
+    console.log(`🔍 [DIAG] Validando: ${username} / ${password}`);
+    const user = usuarios.find(u => u.username === username && u.password === password);
+    if (user) {
+        console.log(`✅ [DIAG] Usuário encontrado: ${user.username}`);
+    } else {
+        console.log(`❌ [DIAG] Usuário NÃO encontrado: ${username}`);
+    }
+    return user || null;
+}
 
 // ============================================
 // FUNÇÃO: OBTER IP LOCAL
@@ -52,38 +85,18 @@ function obterIpLocal() {
 }
 
 // ============================================
-// FUNÇÃO: VALIDAR MAC
+// PLAYLIST IPTV-ORG
 // ============================================
-function validarMac(mac) {
-    if (!mac) return true;
-    mac = mac.trim().toUpperCase().replace(/\s/g, '');
-    const regex6 = /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/;
-    const regex8 = /^([0-9A-F]{2}[:-]){7}[0-9A-F]{2}$/;
-    const regex6sem = /^[0-9A-F]{12}$/;
-    const regex8sem = /^[0-9A-F]{16}$/;
-    return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
-}
+const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
+
+const SERVIDOR_FIXO = {
+    url: 'http://play.dnsrot.vip:80',
+    usuario: 'Farleyjm',
+    senha: 'yz6ncyyfadu'
+};
 
 // ============================================
-// FUNÇÃO: VALIDAR USUÁRIO
-// ============================================
-function validarUsuario(username, password) {
-    const user = usuarios.find(u => u.username === username && u.password === password);
-    if (!user) return null;
-    if (new Date() > new Date(user.data_expiracao)) return null;
-    return user;
-}
-
-function validarPorMac(mac) {
-    if (!mac) return null;
-    const user = usuarios.find(u => u.mac_address === mac);
-    if (!user) return null;
-    if (new Date() > new Date(user.data_expiracao)) return null;
-    return user;
-}
-
-// ============================================
-// FUNÇÃO: BUSCAR CANAIS DO IPTV-ORG
+// FUNÇÃO: BUSCAR CANAIS
 // ============================================
 async function buscarCanaisIPTVOrg() {
     try {
@@ -95,11 +108,9 @@ async function buscarCanaisIPTVOrg() {
         }
         const playlist = await response.text();
         console.log(`✅ Playlist baixada (${playlist.length} bytes)`);
-        
         const linhas = playlist.split('\n');
         const canais = [];
         let canalAtual = null;
-        
         for (const linha of linhas) {
             const linhaLimpa = linha.trim();
             if (linhaLimpa.startsWith('#EXTINF:')) {
@@ -123,22 +134,25 @@ async function buscarCanaisIPTVOrg() {
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR (FALLBACK)
+// FUNÇÃO: GERAR PLAYLIST
 // ============================================
-async function buscarCanaisDoServidor() {
-    try {
+async function gerarPlaylistM3U(usuario) {
+    const expiracao = new Date(usuario.data_expiracao);
+    const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
+
+    let canais = await buscarCanaisIPTVOrg();
+    if (canais.length === 0) {
+        console.log('⚠️ Usando servidor fixo como fallback...');
         const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
         const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
-        console.log('📡 Baixando playlist do servidor fixo...');
         const response = await fetch(urlPlaylist);
         if (!response.ok) {
             console.error('❌ Erro ao baixar playlist:', response.status);
             return [];
         }
         const playlist = await response.text();
-        console.log(`✅ Playlist baixada (${playlist.length} bytes)`);
         const linhas = playlist.split('\n');
-        const canais = [];
+        const canaisFallback = [];
         let canalAtual = null;
         for (const linha of linhas) {
             const linhaLimpa = linha.trim();
@@ -148,29 +162,12 @@ async function buscarCanaisDoServidor() {
                 canalAtual = { nome, url: '' };
             } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
                 canalAtual.url = linhaLimpa;
-                canais.push(canalAtual);
+                canaisFallback.push(canalAtual);
                 canalAtual = null;
             }
         }
-        console.log(`✅ ${canais.length} canais encontrados`);
-        return canais;
-    } catch (error) {
-        console.error('❌ Erro:', error.message);
-        return [];
-    }
-}
-
-// ============================================
-// FUNÇÃO: GERAR PLAYLIST M3U
-// ============================================
-async function gerarPlaylistM3U(usuario) {
-    const expiracao = new Date(usuario.data_expiracao);
-    const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
-
-    let canais = await buscarCanaisIPTVOrg();
-    if (canais.length === 0) {
-        console.log('⚠️ Usando servidor fixo como fallback...');
-        canais = await buscarCanaisDoServidor();
+        canais = canaisFallback;
+        console.log(`✅ ${canais.length} canais do fallback`);
     }
 
     let playlist = '#EXTM3U\n';
@@ -218,10 +215,14 @@ const server = http.createServer((req, res) => {
         const mac = parsedUrl.query.mac;
 
         let user = null;
-        if (mac) user = validarPorMac(mac);
-        else if (username && password) user = validarUsuario(username, password);
+        if (mac) {
+            user = usuarios.find(u => u.mac_address === mac);
+        } else if (username && password) {
+            user = validarUsuario(username, password);
+        }
 
         if (!user) {
+            console.log(`❌ [DIAG] Playlist negada: ${username || mac}`);
             res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('Erro: Credenciais inválidas ou assinatura expirada');
             return;
@@ -242,6 +243,7 @@ const server = http.createServer((req, res) => {
 
     // ===== API: USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
+        console.log(`📡 [DIAG] Requisição /api/usuarios`);
         const usuariosLimpos = usuarios.map(u => ({
             id: u.id,
             username: u.username,
@@ -252,6 +254,7 @@ const server = http.createServer((req, res) => {
             status: u.status,
             mac_address: u.mac_address || null
         }));
+        console.log(`✅ [DIAG] Retornando ${usuariosLimpos.length} usuários`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, data: usuariosLimpos }));
         return;
@@ -275,18 +278,6 @@ const server = http.createServer((req, res) => {
                 if (usuarios.some(u => u.username === username)) {
                     res.writeHead(409, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: false, error: 'Usuário já existe' }));
-                    return;
-                }
-
-                if (mac && !validarMac(mac)) {
-                    res.writeHead(400, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido' }));
-                    return;
-                }
-
-                if (mac && usuarios.some(u => u.mac_address === mac)) {
-                    res.writeHead(409, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ success: false, error: 'MAC já está em uso' }));
                     return;
                 }
 
@@ -314,14 +305,13 @@ const server = http.createServer((req, res) => {
 
                 const ip = obterIpLocal();
                 const urlPlaylist = `https://iptv-manager-pro1-1.onrender.com/playlist.m3u?username=${novoUsuario.username}&password=${novoUsuario.password}`;
-                const urlMac = mac ? `https://iptv-manager-pro1-1.onrender.com/playlist.m3u?mac=${mac}` : null;
 
                 res.writeHead(201, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({
                     success: true,
                     data: novoUsuario,
                     url: urlPlaylist,
-                    urlMac: urlMac
+                    message: 'Usuário criado com sucesso!'
                 }));
             } catch (error) {
                 res.writeHead(500, { 'Content-Type': 'application/json' });
