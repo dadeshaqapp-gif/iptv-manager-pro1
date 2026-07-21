@@ -44,6 +44,25 @@ const FONTES = {
 // CANAIS FIXOS (ZAP, TV GLOBO, SIC, TVI, etc.)
 // ============================================
 const CANAIS_FIXOS = [
+    // Portugal
+    { nome: 'RTP 1 HD', url: 'https://stream.rtp.pt/rtp1', pais: 'PT' },
+    { nome: 'RTP 2 HD', url: 'https://stream.rtp.pt/rtp2', pais: 'PT' },
+    { nome: 'RTP 3 HD', url: 'https://stream.rtp.pt/rtp3', pais: 'PT' },
+    { nome: 'RTP Internacional', url: 'https://stream.rtp.pt/internacional', pais: 'PT' },
+    { nome: 'SIC HD', url: 'https://stream.sic.pt/sic', pais: 'PT' },
+    { nome: 'SIC Notícias HD', url: 'https://stream.sic.pt/noticias', pais: 'PT' },
+    { nome: 'SIC Radical HD', url: 'https://stream.sic.pt/radical', pais: 'PT' },
+    { nome: 'SIC Mulher', url: 'https://stream.sic.pt/mulher', pais: 'PT' },
+    { nome: 'SIC K', url: 'https://stream.sic.pt/k', pais: 'PT' },
+    { nome: 'TVI HD', url: 'https://stream.tvi.pt/tvi', pais: 'PT' },
+    { nome: 'TVI 24 HD', url: 'https://stream.tvi.pt/24', pais: 'PT' },
+    { nome: 'TVI Reality', url: 'https://stream.tvi.pt/reality', pais: 'PT' },
+    { nome: 'TVI Ficção', url: 'https://stream.tvi.pt/ficcao', pais: 'PT' },
+    { nome: 'CMTV', url: 'https://stream.cmtv.pt/cmtv', pais: 'PT' },
+    { nome: 'Porto Canal', url: 'https://stream.portocanal.pt/portocanal', pais: 'PT' },
+    { nome: 'RTP Açores', url: 'https://stream.rtp.pt/acores', pais: 'PT' },
+    { nome: 'RTP Madeira', url: 'https://stream.rtp.pt/madeira', pais: 'PT' },
+    { nome: 'Canal 11', url: 'https://stream.canal11.pt/canal11', pais: 'PT' },
     // Angola - ZAP
     { nome: 'ZAP Novelas', url: 'https://stream.zap.ao/novelas', pais: 'AO' },
     { nome: 'ZAP Viva', url: 'https://stream.zap.ao/viva', pais: 'AO' },
@@ -545,3 +564,5 @@ server.listen(PORT, () => {
 setInterval(() => {
     try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
 }, 30000);
+
+
