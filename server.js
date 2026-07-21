@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - DIAGNÓSTICO
+// IPTV MANAGER PRO - MÚLTIPLAS FONTES
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -8,19 +8,311 @@ const url = require('url');
 const os = require('os');
 
 const PORT = process.env.PORT || 8888;
+let usuarios = [];
 
 // ============================================
-// CARREGAR USUÁRIOS DO JSON
+// CONFIGURAÇÃO - FONTES DE PLAYLISTS
 // ============================================
-let usuarios = [];
+const FONTES = {
+    // Playlists por país
+    MUNDO: 'https://iptv-org.github.io/iptv/index.m3u',
+    BRASIL: 'https://iptv-org.github.io/iptv/countries/br.m3u',
+    PORTUGAL: 'https://iptv-org.github.io/iptv/countries/pt.m3u',
+    ANGOLA: 'https://iptv-org.github.io/iptv/countries/ao.m3u',
+    MOCAMBIQUE: 'https://iptv-org.github.io/iptv/countries/mz.m3u',
+    EUA: 'https://iptv-org.github.io/iptv/countries/us.m3u',
+    REINO_UNIDO: 'https://iptv-org.github.io/iptv/countries/gb.m3u',
+    ESPANHA: 'https://iptv-org.github.io/iptv/countries/es.m3u',
+    FRANCA: 'https://iptv-org.github.io/iptv/countries/fr.m3u',
+    ITALIA: 'https://iptv-org.github.io/iptv/countries/it.m3u',
+    ALEMANHA: 'https://iptv-org.github.io/iptv/countries/de.m3u',
+    
+    // Categorias
+    ESPORTE: 'https://iptv-org.github.io/iptv/categories/sports.m3u',
+    NOTICIAS: 'https://iptv-org.github.io/iptv/categories/news.m3u',
+    FILMES: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
+    SERIES: 'https://iptv-org.github.io/iptv/categories/series.m3u',
+    INFANTIL: 'https://iptv-org.github.io/iptv/categories/kids.m3u',
+    MUSICA: 'https://iptv-org.github.io/iptv/categories/music.m3u',
+    EDUCATIVO: 'https://iptv-org.github.io/iptv/categories/education.m3u',
+    RELIGIAO: 'https://iptv-org.github.io/iptv/categories/religious.m3u',
+    ENTRETENIMENTO: 'https://iptv-org.github.io/iptv/categories/entertainment.m3u',
+    VAREJO: 'https://iptv-org.github.io/iptv/categories/shopping.m3u',
+};
+
+// ============================================
+// CANAIS FIXOS (ZAP, TV GLOBO, SIC, TVI, etc.)
+// ============================================
+const CANAIS_FIXOS = [
+    // Angola - ZAP
+    { nome: 'ZAP Novelas', url: 'https://stream.zap.ao/novelas', pais: 'AO' },
+    { nome: 'ZAP Viva', url: 'https://stream.zap.ao/viva', pais: 'AO' },
+    { nome: 'ZAP Cinema', url: 'https://stream.zap.ao/cinema', pais: 'AO' },
+    { nome: 'ZAP Música', url: 'https://stream.zap.ao/musica', pais: 'AO' },
+    { nome: 'ZAP Desporto', url: 'https://stream.zap.ao/desporto', pais: 'AO' },
+    { nome: 'ZAP Novelas 2', url: 'https://stream.zap.ao/novelas2', pais: 'AO' },
+    { nome: 'ZAP Filmes', url: 'https://stream.zap.ao/filmes', pais: 'AO' },
+    { nome: 'ZAP Kids', url: 'https://stream.zap.ao/kids', pais: 'AO' },
+    
+    // Portugal
+    { nome: 'RTP 1', url: 'https://stream.rtp.pt/rtp1', pais: 'PT' },
+    { nome: 'RTP 2', url: 'https://stream.rtp.pt/rtp2', pais: 'PT' },
+    { nome: 'RTP 3', url: 'https://stream.rtp.pt/rtp3', pais: 'PT' },
+    { nome: 'SIC', url: 'https://stream.sic.pt/sic', pais: 'PT' },
+    { nome: 'SIC Notícias', url: 'https://stream.sic.pt/noticias', pais: 'PT' },
+    { nome: 'SIC Radical', url: 'https://stream.sic.pt/radical', pais: 'PT' },
+    { nome: 'TVI', url: 'https://stream.tvi.pt/tvi', pais: 'PT' },
+    { nome: 'TVI 24', url: 'https://stream.tvi.pt/24', pais: 'PT' },
+    { nome: 'TVI Reality', url: 'https://stream.tvi.pt/reality', pais: 'PT' },
+    { nome: 'CMTV', url: 'https://stream.cmtv.pt/cmtv', pais: 'PT' },
+    
+    // Brasil
+    { nome: 'TV Globo', url: 'https://stream.globo.com/globo', pais: 'BR' },
+    { nome: 'Globo News', url: 'https://stream.globo.com/news', pais: 'BR' },
+    { nome: 'SBT', url: 'https://stream.sbt.com/sbt', pais: 'BR' },
+    { nome: 'Record TV', url: 'https://stream.record.com/record', pais: 'BR' },
+    { nome: 'Band', url: 'https://stream.band.com/band', pais: 'BR' },
+    { nome: 'CNN Brasil', url: 'https://stream.cnnbrasil.com/cnn', pais: 'BR' },
+    { nome: 'Globo Play', url: 'https://stream.globo.com/play', pais: 'BR' },
+    
+    // Moçambique
+    { nome: 'TVM', url: 'https://stream.tvm.co.mz/tvm', pais: 'MZ' },
+    { nome: 'Stv', url: 'https://stream.stv.co.mz/stv', pais: 'MZ' },
+    { nome: 'Miramar', url: 'https://stream.miramar.co.mz/miramar', pais: 'MZ' },
+];
+
+// ============================================
+// SERVIDOR FIXO (FALLBACK)
+// ============================================
+const SERVIDOR_FIXO = {
+    url: 'http://play.dnsrot.vip:80',
+    usuario: 'Farleyjm',
+    senha: 'yz6ncyyfadu'
+};
+
+// ============================================
+// FUNÇÃO: OBTER IP LOCAL
+// ============================================
+function obterIpLocal() {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+        for (const net of interfaces[name]) {
+            if (net.family === 'IPv4' && !net.internal) {
+                return net.address;
+            }
+        }
+    }
+    return 'localhost';
+}
+
+// ============================================
+// FUNÇÃO: VALIDAR MAC
+// ============================================
+function validarMac(mac) {
+    if (!mac) return true;
+    mac = mac.trim().toUpperCase().replace(/\s/g, '');
+    const regex6 = /^([0-9A-F]{2}[:-]){5}[0-9A-F]{2}$/;
+    const regex8 = /^([0-9A-F]{2}[:-]){7}[0-9A-F]{2}$/;
+    const regex6sem = /^[0-9A-F]{12}$/;
+    const regex8sem = /^[0-9A-F]{16}$/;
+    return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
+}
+
+// ============================================
+// FUNÇÃO: BUSCAR TODAS AS FONTES
+// ============================================
+async function buscarTodasAsFontes() {
+    const todosCanais = [];
+    const vistos = new Set();
+
+    // Lista de fontes para buscar
+    const fontesParaBuscar = [
+        { url: FONTES.MUNDO, nome: '🌍 Mundo' },
+        { url: FONTES.BRASIL, nome: '🇧🇷 Brasil' },
+        { url: FONTES.PORTUGAL, nome: '🇵🇹 Portugal' },
+        { url: FONTES.ANGOLA, nome: '🇦🇴 Angola' },
+        { url: FONTES.MOCAMBIQUE, nome: '🇲🇿 Moçambique' },
+        { url: FONTES.EUA, nome: '🇺🇸 EUA' },
+        { url: FONTES.REINO_UNIDO, nome: '🇬🇧 Reino Unido' },
+        { url: FONTES.ESPANHA, nome: '🇪🇸 Espanha' },
+        { url: FONTES.FRANCA, nome: '🇫🇷 França' },
+        { url: FONTES.ITALIA, nome: '🇮🇹 Itália' },
+        { url: FONTES.ALEMANHA, nome: '🇩🇪 Alemanha' },
+        { url: FONTES.ESPORTE, nome: '⚽ Esportes' },
+        { url: FONTES.NOTICIAS, nome: '📰 Notícias' },
+        { url: FONTES.FILMES, nome: '🎬 Filmes' },
+        { url: FONTES.SERIES, nome: '📺 Séries' },
+        { url: FONTES.INFANTIL, nome: '🧒 Infantil' },
+        { url: FONTES.MUSICA, nome: '🎵 Música' },
+        { url: FONTES.EDUCATIVO, nome: '📚 Educativo' },
+        { url: FONTES.RELIGIAO, nome: '⛪ Religião' },
+        { url: FONTES.ENTRETENIMENTO, nome: '🎭 Entretenimento' },
+        { url: FONTES.VAREJO, nome: '🛒 Varejo' },
+    ];
+
+    for (const fonte of fontesParaBuscar) {
+        try {
+            console.log(`📡 Buscando ${fonte.nome}...`);
+            const response = await fetch(fonte.url);
+            if (!response.ok) {
+                console.log(`⚠️ ${fonte.nome} não disponível (${response.status})`);
+                continue;
+            }
+            const playlist = await response.text();
+            const linhas = playlist.split('\n');
+            let canalAtual = null;
+            let count = 0;
+
+            for (const linha of linhas) {
+                const linhaLimpa = linha.trim();
+                if (linhaLimpa.startsWith('#EXTINF:')) {
+                    const matchNome = linhaLimpa.match(/,([^,]+)$/);
+                    const nome = matchNome ? matchNome[1] : 'Canal';
+                    const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
+                    const logo = matchLogo ? matchLogo[1] : '';
+                    const matchGrupo = linhaLimpa.match(/group-title="([^"]+)"/);
+                    const grupo = matchGrupo ? matchGrupo[1] : fonte.nome;
+                    canalAtual = { nome, url: '', logo, grupo, fonte: fonte.nome };
+                } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                    canalAtual.url = linhaLimpa;
+                    const key = canalAtual.nome + '|' + canalAtual.url;
+                    if (!vistos.has(key)) {
+                        vistos.add(key);
+                        todosCanais.push(canalAtual);
+                        count++;
+                    }
+                    canalAtual = null;
+                }
+            }
+            console.log(`✅ ${fonte.nome}: ${count} canais adicionados`);
+        } catch (error) {
+            console.error(`❌ Erro ao buscar ${fonte.nome}:`, error.message);
+        }
+    }
+
+    // Adicionar canais fixos (ZAP, RTP, SIC, TVI, Globo, etc.)
+    for (const canal of CANAIS_FIXOS) {
+        const key = canal.nome + '|' + canal.url;
+        if (!vistos.has(key)) {
+            vistos.add(key);
+            const emojiPais = {
+                'AO': '🇦🇴',
+                'PT': '🇵🇹',
+                'BR': '🇧🇷',
+                'MZ': '🇲🇿'
+            };
+            const emoji = emojiPais[canal.pais] || '📺';
+            todosCanais.push({
+                ...canal,
+                logo: '',
+                grupo: `📡 ${emoji} ${canal.pais}`,
+                fonte: 'Fixos'
+            });
+        }
+    }
+
+    console.log(`✅ Total: ${todosCanais.length} canais únicos`);
+    return todosCanais;
+}
+
+// ============================================
+// FUNÇÃO: BUSCAR CANAIS DO SERVIDOR (FALLBACK)
+// ============================================
+async function buscarCanaisDoServidor() {
+    try {
+        const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
+        const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
+        console.log('📡 Baixando playlist do servidor fixo...');
+        const response = await fetch(urlPlaylist);
+        if (!response.ok) {
+            console.error('❌ Erro ao baixar playlist:', response.status);
+            return [];
+        }
+        const playlist = await response.text();
+        console.log(`✅ Playlist baixada (${playlist.length} bytes)`);
+        const linhas = playlist.split('\n');
+        const canais = [];
+        let canalAtual = null;
+        for (const linha of linhas) {
+            const linhaLimpa = linha.trim();
+            if (linhaLimpa.startsWith('#EXTINF:')) {
+                const match = linhaLimpa.match(/,([^,]+)$/);
+                const nome = match ? match[1] : 'Canal';
+                canalAtual = { nome, url: '' };
+            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                canalAtual.url = linhaLimpa;
+                canais.push(canalAtual);
+                canalAtual = null;
+            }
+        }
+        console.log(`✅ ${canais.length} canais do fallback`);
+        return canais;
+    } catch (error) {
+        console.error('❌ Erro:', error.message);
+        return [];
+    }
+}
+
+// ============================================
+// FUNÇÃO: GERAR PLAYLIST M3U
+// ============================================
+async function gerarPlaylistM3U(usuario) {
+    const expiracao = new Date(usuario.data_expiracao);
+    const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
+
+    console.log(`📡 Gerando playlist para ${usuario.username}...`);
+
+    let canais = await buscarTodasAsFontes();
+
+    if (canais.length === 0) {
+        console.log('⚠️ Nenhum canal encontrado, usando servidor fixo...');
+        canais = await buscarCanaisDoServidor();
+    }
+
+    // Limitar a 5000 canais para performance
+    const canaisSelecionados = canais.slice(0, 5000);
+
+    let playlist = '#EXTM3U\n';
+    playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
+    playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
+
+    // Agrupar por grupo
+    const grupos = {};
+    canaisSelecionados.forEach(canal => {
+        const grupo = canal.grupo || canal.fonte || 'Outros';
+        if (!grupos[grupo]) grupos[grupo] = [];
+        grupos[grupo].push(canal);
+    });
+
+    // Ordenar grupos
+    const gruposOrdenados = Object.keys(grupos).sort();
+
+    for (const grupo of gruposOrdenados) {
+        const canaisDoGrupo = grupos[grupo];
+        playlist += `#EXTINF:-1 tvg-logo="",📁 ${grupo}\n`;
+        playlist += `#EXTGRP:${grupo}\n`;
+
+        canaisDoGrupo.forEach(canal => {
+            const logo = canal.logo || '';
+            playlist += `#EXTINF:-1 tvg-logo="${logo}",${canal.nome}\n`;
+            playlist += `${canal.url}\n`;
+        });
+        playlist += '\n';
+    }
+
+    console.log(`✅ Playlist gerada com ${canaisSelecionados.length} canais`);
+    return playlist;
+}
+
+// ============================================
+// CARREGAR USUÁRIOS
+// ============================================
 try {
     const data = fs.readFileSync('usuarios.json', 'utf8');
     usuarios = JSON.parse(data);
-    console.log(`✅ [DIAG] Usuários carregados do JSON: ${usuarios.length}`);
-    console.log(`✅ [DIAG] Conteúdo: ${JSON.stringify(usuarios)}`);
+    console.log(`✅ Usuários carregados: ${usuarios.length}`);
 } catch (err) {
-    console.error(`❌ [DIAG] Erro ao carregar JSON: ${err.message}`);
-    // Criar usuários de emergência
+    console.error(`❌ Erro ao carregar JSON: ${err.message}`);
     usuarios = [
         {
             id: '1',
@@ -44,151 +336,25 @@ try {
         }
     ];
     fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-    console.log(`✅ [DIAG] Usuários de emergência criados: ${usuarios.length}`);
+    console.log(`✅ Usuários de emergência criados: ${usuarios.length}`);
 }
 
 // ============================================
-// FUNÇÃO: LISTAR USUÁRIOS (COM LOG)
-// ============================================
-function listarUsuarios() {
-    console.log(`📡 [DIAG] listarUsuarios() chamada. Total: ${usuarios.length}`);
-    return usuarios;
-}
-
-// ============================================
-// FUNÇÃO: VALIDAR USUÁRIO
+// FUNÇÕES DE VALIDAÇÃO
 // ============================================
 function validarUsuario(username, password) {
-    console.log(`🔍 [DIAG] Validando: ${username} / ${password}`);
     const user = usuarios.find(u => u.username === username && u.password === password);
-    if (user) {
-        console.log(`✅ [DIAG] Usuário encontrado: ${user.username}`);
-    } else {
-        console.log(`❌ [DIAG] Usuário NÃO encontrado: ${username}`);
-    }
-    return user || null;
+    if (!user) return null;
+    if (new Date() > new Date(user.data_expiracao)) return null;
+    return user;
 }
 
-// ============================================
-// FUNÇÃO: OBTER IP LOCAL
-// ============================================
-function obterIpLocal() {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-        for (const net of interfaces[name]) {
-            if (net.family === 'IPv4' && !net.internal) {
-                return net.address;
-            }
-        }
-    }
-    return 'localhost';
-}
-
-// ============================================
-// PLAYLIST IPTV-ORG
-// ============================================
-const PLAYLIST_IPTV_ORG = 'https://iptv-org.github.io/iptv/index.m3u';
-
-const SERVIDOR_FIXO = {
-    url: 'http://play.dnsrot.vip:80',
-    usuario: 'Farleyjm',
-    senha: 'yz6ncyyfadu'
-};
-
-// ============================================
-// FUNÇÃO: BUSCAR CANAIS
-// ============================================
-async function buscarCanaisIPTVOrg() {
-    try {
-        console.log('📡 Baixando playlist do IPTV-org...');
-        const response = await fetch(PLAYLIST_IPTV_ORG);
-        if (!response.ok) {
-            console.error('❌ Erro ao baixar playlist:', response.status);
-            return [];
-        }
-        const playlist = await response.text();
-        console.log(`✅ Playlist baixada (${playlist.length} bytes)`);
-        const linhas = playlist.split('\n');
-        const canais = [];
-        let canalAtual = null;
-        for (const linha of linhas) {
-            const linhaLimpa = linha.trim();
-            if (linhaLimpa.startsWith('#EXTINF:')) {
-                const matchNome = linhaLimpa.match(/,([^,]+)$/);
-                const nome = matchNome ? matchNome[1] : 'Canal';
-                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
-                const logo = matchLogo ? matchLogo[1] : '';
-                canalAtual = { nome, url: '', logo };
-            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
-                canalAtual.url = linhaLimpa;
-                canais.push(canalAtual);
-                canalAtual = null;
-            }
-        }
-        console.log(`✅ ${canais.length} canais encontrados`);
-        return canais;
-    } catch (error) {
-        console.error('❌ Erro:', error.message);
-        return [];
-    }
-}
-
-// ============================================
-// FUNÇÃO: GERAR PLAYLIST
-// ============================================
-async function gerarPlaylistM3U(usuario) {
-    const expiracao = new Date(usuario.data_expiracao);
-    const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
-
-    let canais = await buscarCanaisIPTVOrg();
-    if (canais.length === 0) {
-        console.log('⚠️ Usando servidor fixo como fallback...');
-        const urlBase = SERVIDOR_FIXO.url.replace(/\/$/, '');
-        const urlPlaylist = `${urlBase}/get.php?username=${SERVIDOR_FIXO.usuario}&password=${SERVIDOR_FIXO.senha}&type=m3u_plus&output=ts`;
-        const response = await fetch(urlPlaylist);
-        if (!response.ok) {
-            console.error('❌ Erro ao baixar playlist:', response.status);
-            return [];
-        }
-        const playlist = await response.text();
-        const linhas = playlist.split('\n');
-        const canaisFallback = [];
-        let canalAtual = null;
-        for (const linha of linhas) {
-            const linhaLimpa = linha.trim();
-            if (linhaLimpa.startsWith('#EXTINF:')) {
-                const match = linhaLimpa.match(/,([^,]+)$/);
-                const nome = match ? match[1] : 'Canal';
-                canalAtual = { nome, url: '' };
-            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
-                canalAtual.url = linhaLimpa;
-                canaisFallback.push(canalAtual);
-                canalAtual = null;
-            }
-        }
-        canais = canaisFallback;
-        console.log(`✅ ${canais.length} canais do fallback`);
-    }
-
-    let playlist = '#EXTM3U\n';
-    playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
-    playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
-
-    if (canais.length === 0) {
-        playlist += '#EXTINF:-1,⚠️ Nenhum canal disponível\n';
-        playlist += 'http://exemplo.com/sem-canal.ts\n';
-        return playlist;
-    }
-
-    const canaisSelecionados = canais.slice(0, 200);
-    canaisSelecionados.forEach(canal => {
-        const logo = canal.logo || '';
-        playlist += `#EXTINF:-1 tvg-logo="${logo}",${canal.nome}\n`;
-        playlist += `${canal.url}\n\n`;
-    });
-
-    console.log(`✅ Playlist gerada com ${canaisSelecionados.length} canais`);
-    return playlist;
+function validarPorMac(mac) {
+    if (!mac) return null;
+    const user = usuarios.find(u => u.mac_address === mac);
+    if (!user) return null;
+    if (new Date() > new Date(user.data_expiracao)) return null;
+    return user;
 }
 
 // ============================================
@@ -215,14 +381,10 @@ const server = http.createServer((req, res) => {
         const mac = parsedUrl.query.mac;
 
         let user = null;
-        if (mac) {
-            user = usuarios.find(u => u.mac_address === mac);
-        } else if (username && password) {
-            user = validarUsuario(username, password);
-        }
+        if (mac) user = validarPorMac(mac);
+        else if (username && password) user = validarUsuario(username, password);
 
         if (!user) {
-            console.log(`❌ [DIAG] Playlist negada: ${username || mac}`);
             res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('Erro: Credenciais inválidas ou assinatura expirada');
             return;
@@ -243,7 +405,6 @@ const server = http.createServer((req, res) => {
 
     // ===== API: USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
-        console.log(`📡 [DIAG] Requisição /api/usuarios`);
         const usuariosLimpos = usuarios.map(u => ({
             id: u.id,
             username: u.username,
@@ -254,7 +415,6 @@ const server = http.createServer((req, res) => {
             status: u.status,
             mac_address: u.mac_address || null
         }));
-        console.log(`✅ [DIAG] Retornando ${usuariosLimpos.length} usuários`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, data: usuariosLimpos }));
         return;
@@ -278,6 +438,18 @@ const server = http.createServer((req, res) => {
                 if (usuarios.some(u => u.username === username)) {
                     res.writeHead(409, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: false, error: 'Usuário já existe' }));
+                    return;
+                }
+
+                if (mac && !validarMac(mac)) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'Formato MAC inválido' }));
+                    return;
+                }
+
+                if (mac && usuarios.some(u => u.mac_address === mac)) {
+                    res.writeHead(409, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'MAC já está em uso' }));
                     return;
                 }
 
@@ -357,6 +529,9 @@ const server = http.createServer((req, res) => {
     });
 });
 
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
 server.listen(PORT, () => {
     const ip = obterIpLocal();
     console.log('📺 IPTV Manager Pro - Servidor rodando!');
@@ -368,5 +543,5 @@ server.listen(PORT, () => {
 
 // Salvar usuários automaticamente
 setInterval(() => {
-    try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) {}
+    try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
 }, 30000);
