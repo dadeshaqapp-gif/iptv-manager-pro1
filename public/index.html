@@ -5,14 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IPTV Manager Pro</title>
   <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <div id="app">
+    <!-- ===== HEADER ===== -->
     <header>
       <h1>📺 IPTV Manager Pro</h1>
       <p>Sistema Profissional de Gerenciamento de Assinaturas IPTV</p>
     </header>
 
+    <!-- ===== FORMULÁRIO DE CRIAÇÃO ===== -->
     <div class="container">
       <h2>➕ Criar Novo Usuário</h2>
       <div class="form-row">
@@ -28,7 +31,7 @@
           <label>🔑 Senha</label>
           <div style="display:flex;gap:8px;">
             <input type="text" id="inputPassword" placeholder="Senha" style="flex:1;">
-            <button onclick="gerarSenha()" class="btn-small">🎲</button>
+            <button onclick="gerarSenha()" class="btn-small" title="Gerar senha automática">🎲</button>
           </div>
         </div>
         <div class="form-group">
@@ -46,12 +49,15 @@
           <small style="color:#556677;font-size:11px;">Formato: AA:BB:CC:DD:EE:FF</small>
         </div>
         <div class="form-group" style="justify-content:flex-end;">
-          <button onclick="criarUsuario()" class="btn-criar">➕ Criar Usuário</button>
+          <button onclick="criarUsuario()" class="btn-criar">
+            <i class="fas fa-plus"></i> Criar Usuário
+          </button>
         </div>
       </div>
       <div id="mensagemFeedback" style="margin-top:12px;padding:10px;border-radius:8px;display:none;"></div>
     </div>
 
+    <!-- ===== GERAR CREDENCIAIS RÁPIDAS ===== -->
     <div class="container">
       <h2>🎯 Gerar Credenciais Rápidas</h2>
       <div class="btn-group">
@@ -62,6 +68,7 @@
       </div>
     </div>
 
+    <!-- ===== TABELA DE USUÁRIOS ===== -->
     <div class="container">
       <h2>📋 Usuários Cadastrados</h2>
       <div class="filtros">
@@ -105,5 +112,11 @@
   </div>
 
   <script src="js/app.js"></script>
+
+  <!-- ===== RODAPÉ ===== -->
+  <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid #1a2a3a; color: #556677; font-size: 14px;">
+    Criado por <strong style="color: #00d4ff;">Dade Shaq</strong> &copy; 2026 - Todos os direitos reservados.
+  </footer>
+
 </body>
 </html>
