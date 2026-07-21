@@ -14,6 +14,24 @@ let usuarios = [];
 // CANAIS FIXOS POR PAÍS
 // ============================================
 const CANAIS_FIXOS = [
+    // ===== 🎬 FILMES E SÉRIES (Pluto TV) =====
+    { nome: '🎬 Filmes Ação 24h', url: 'https://pluto.tv/acao', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Filmes Comédia 24h', url: 'https://pluto.tv/comedia', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Filmes Terror 24h', url: 'https://pluto.tv/terror', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Filmes Romance 24h', url: 'https://pluto.tv/romance', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Filmes Ficção 24h', url: 'https://pluto.tv/ficcao', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Filmes Animação 24h', url: 'https://pluto.tv/animacao', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '📺 Séries Ação 24h', url: 'https://pluto.tv/series', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Pluto TV Filmes', url: 'https://pluto.tv/filmes', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '🎬 Pluto TV Clássicos', url: 'https://pluto.tv/classicos', pais: 'INT', grupo: '🎬 Filmes' },
+    
+    // ===== 🎬 PLEX TV (Gratuita) =====
+    { nome: '🎬 Plex Filmes', url: 'https://plex.tv/filmes', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '📺 Plex Séries', url: 'https://plex.tv/series', pais: 'INT', grupo: '🎬 Filmes' },
+    
+    // ===== 🎬 VIX (Português) =====
+    { nome: '🎬 Vix Filmes', url: 'https://vix.com/filmes', pais: 'INT', grupo: '🎬 Filmes' },
+    { nome: '📺 Vix Séries', url: 'https://vix.com/series', pais: 'INT', grupo: '🎬 Filmes' },
     // ===== 🇦🇴 ANGOLA =====
     { nome: 'ZAP Novelas', url: 'http://zap.ao/novelas', pais: 'AO', grupo: '🇦🇴 Angola' },
     { nome: 'ZAP Viva', url: 'http://zap.ao/viva', pais: 'AO', grupo: '🇦🇴 Angola' },
@@ -476,3 +494,4 @@ server.listen(PORT, () => {
 setInterval(() => {
     try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
 }, 30000);
+
