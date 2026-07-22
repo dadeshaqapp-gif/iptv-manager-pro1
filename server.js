@@ -9,13 +9,14 @@ const os = require('os');
 const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
-// Cache global em memória para resposta instantânea aos players
+// Cache global e trava de segurança contra loops
 let cacheCanais = [];
 let cacheUltimaAtualizacao = 0;
 let carregandoCanais = false;
+const TEMPO_MINIMO_RETRY_MS = 5 * 60 * 1000; // 5 minutos entre tentativas em caso de falha
 
 // ============================================
-// SERVIDORES ESTÁVEIS (VECTOR PLAYER)
+// SERVIDORES ESTÁVEIS DE ORIGEM
 // ============================================
 const SERVERS = [
     { id: 1, url: 'http://stv.sstv.cx:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'SSTV' },
@@ -46,24 +47,42 @@ function validarMac(mac) {
     return regex6.test(mac) || regex8.test(mac) || regex6sem.test(mac) || regex8sem.test(mac);
 }
 
+// Busca canais simulando um aplicativo IPTV legítimo para evitar bloqueios
 async function buscarCanaisServer(server) {
     try {
-        console.log(`📡 [${server.nome}] A buscar canais...`);
+        console.log(`📡 [${server.nome}] Conectando ao servidor...`);
         const urlPlaylist = `${server.url}/get.php?username=${server.usuario}&password=${server.senha}&type=m3u_plus&output=ts`;
-        const response = await fetch(urlPlaylist, { signal: AbortSignal.timeout(15000) });
+        
+        const response = await fetch(urlPlaylist, {
+            method: 'GET',
+            headers: {
+                'User-Agent': 'IPTVSmartersPlayer/3.1.5 (Linux; Android 10)',
+                'Accept': '*/*',
+                'Connection': 'keep-alive'
+            },
+            signal: AbortSignal.timeout(12000) // Timeout de 12 segundos por servidor
+        });
+
         if (!response.ok) {
-            console.log(`⚠️ ${server.nome} indisponível (${response.status})`);
+            console.log(`⚠️ [${server.nome}] Indisponível (Status HTTP: ${response.status})`);
             return [];
         }
+
         const playlist = await response.text();
+        if (!playlist || !playlist.includes('#EXTM3U')) {
+            console.log(`⚠️ [${server.nome}] Resposta inválida (Não é uma lista M3U)`);
+            return [];
+        }
+
         const linhas = playlist.split('\n');
         const canais = [];
         let canalAtual = null;
+
         for (const linha of linhas) {
             const linhaLimpa = linha.trim();
             if (linhaLimpa.startsWith('#EXTINF:')) {
                 const matchNome = linhaLimpa.match(/,([^,]+)$/);
-                const nome = matchNome ? matchNome[1] : 'Canal';
+                const nome = matchNome ? matchNome[1].trim() : 'Canal';
                 const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
                 const logo = matchLogo ? matchLogo[1] : '';
                 canalAtual = { nome, url: '', logo, origem: server.nome };
@@ -75,22 +94,29 @@ async function buscarCanaisServer(server) {
                 canalAtual = null;
             }
         }
-        console.log(`✅ ${server.nome}: ${canais.length} canais`);
+        console.log(`✅ [${server.nome}] Sucesso: ${canais.length} canais carregados`);
         return canais;
     } catch (error) {
-        console.error(`❌ ${server.nome}: ${error.message}`);
+        console.error(`❌ [${server.nome}] Erro de conexão: ${error.message}`);
         return [];
     }
 }
 
+// Atualização de cache segura com trava e proteção contra tempestade de requisições
 async function atualizarCacheCanais() {
     if (carregandoCanais) return;
+    
+    // Trava imediatamente
     carregandoCanais = true;
-    console.log('🚀 Atualizando cache de canais em segundo plano...');
+    cacheUltimaAtualizacao = Date.now();
+    console.log('🚀 [CACHE] Iniciando atualização de canais em segundo plano...');
+
     try {
+        // Executa requisições em paralelo com tratamento individual
         const resultados = await Promise.all(SERVERS.map(server => buscarCanaisServer(server)));
         const todosCanais = [];
         const vistos = new Set();
+
         resultados.forEach((canais) => {
             for (const canal of canais) {
                 const key = canal.nome + '|' + canal.url;
@@ -100,31 +126,45 @@ async function atualizarCacheCanais() {
                 }
             }
         });
-        cacheCanais = todosCanais;
-        cacheUltimaAtualizacao = Date.now();
-        console.log(`✅ Cache atualizado com ${cacheCanais.length} canais únicos!`);
+
+        if (todosCanais.length > 0) {
+            cacheCanais = todosCanais;
+            console.log(`🎉 [CACHE] Concluído: Total de ${cacheCanais.length} canais prontos!`);
+        } else {
+            console.log('⚠️ [CACHE] Todos os servidores externos falharam. Mantendo estado atual.');
+            // Se nenhum canal for retornado, adicionamos um canal informativo para evitar erro nos players
+            if (cacheCanais.length === 0) {
+                cacheCanais = [{
+                    nome: "⚠️ Servidores Temporariamente Indisponíveis",
+                    url: "http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
+                    logo: "",
+                    origem: "SSTV"
+                }];
+            }
+        }
     } catch (e) {
-        console.error('❌ Erro ao atualizar cache:', e.message);
+        console.error('❌ [CACHE] Erro geral ao atualizar:', e.message);
     } finally {
         carregandoCanais = false;
     }
 }
 
 function obterCanais() {
-    if (cacheCanais.length === 0 || (Date.now() - cacheUltimaAtualizacao > 20 * 60 * 1000)) {
+    const tempoDecorrido = Date.now() - cacheUltimaAtualizacao;
+    if (tempoDecorrido > TEMPO_MINIMO_RETRY_MS && !carregandoCanais) {
         atualizarCacheCanais();
     }
     return cacheCanais;
 }
 
+// Carregar usuários
 try {
     const data = fs.readFileSync('usuarios.json', 'utf8');
     usuarios = JSON.parse(data);
-    console.log(`✅ Usuários carregados: ${usuarios.length}`);
+    console.log(`✅ Usuários carregados com sucesso: ${usuarios.length}`);
 } catch (err) {
     usuarios = [
-        { id: '1', username: 'teste', contato: 'teste@teste.com', password: '123456', plano: 'mensal', data_expiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), status: 'ativo', mac_address: null },
-        { id: '2', username: 'Barbosa', contato: 'teste@iptv.com', password: 'zYrtNutAeL', plano: 'teste', data_expiracao: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), status: 'ativo', mac_address: null }
+        { id: '1', username: 'teste', contato: 'teste@teste.com', password: '123456', plano: 'mensal', data_expiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), status: 'ativo', mac_address: null }
     ];
     fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
 }
@@ -147,22 +187,15 @@ function validarPorMac(mac) {
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
     const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
-    let canais = obterCanais();
-    if (canais.length === 0) {
-        await atualizarCacheCanais();
-        canais = cacheCanais;
-    }
-    if (canais.length === 0) {
-        return '#EXTM3U\n#EXTINF:-1,⚠️ Nenhum canal disponível\n';
-    }
-    const canaisSelecionados = canais.slice(0, 5000);
+    const canais = obterCanais();
+    
     let playlist = '#EXTM3U\n';
     playlist += `#PLAYLIST: IPTV Manager Pro\n`;
     playlist += `#PLAYLIST: ${usuario.username} - ${usuario.plano.toUpperCase()}\n`;
     playlist += `#EXTINF:-1,📅 Expira em: ${diasRestantes} dias\n\n`;
 
     const grupos = {};
-    canaisSelecionados.forEach(canal => {
+    canais.forEach(canal => {
         const grupo = canal.origem || '📡 Vector';
         if (!grupos[grupo]) grupos[grupo] = [];
         grupos[grupo].push(canal);
@@ -180,6 +213,7 @@ async function gerarPlaylistM3U(usuario) {
     return playlist;
 }
 
+// Servidor HTTP Principal
 const server = http.createServer(async (req, res) => {
     const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = reqUrl.pathname;
@@ -194,7 +228,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // ===== ROTA DE REPRODUÇÃO DE STREAM (AO VIVO) =====
+    // ===== ROTA DE REPRODUÇÃO DE STREAM (REDIRECIONAMENTO DIRETO PARA VECTOR / TV GARDEN) =====
     const liveMatch = pathname.match(/^\/live\/([^\/]+)\/([^\/]+)\/(\d+)(\.[a-zA-Z0-9]+)?$/) ||
                       pathname.match(/^\/([^\/]+)\/([^\/]+)\/(\d+)(\.[a-zA-Z0-9]+)?$/);
 
@@ -206,24 +240,26 @@ const server = http.createServer(async (req, res) => {
         const user = validarUsuario(username, password);
         if (!user) {
             res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('Acesso negado: Credenciais inválidas ou conta expirada.');
+            res.end('Acesso negado: Credenciais inválidas ou assinatura expirada.');
             return;
         }
 
         const canais = obterCanais();
         const canal = canais[streamId - 1];
+        
         if (!canal || !canal.url) {
             res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('Canal não encontrado ou indisponível.');
+            res.end('Canal indisponível no momento.');
             return;
         }
 
+        // Redireciona o aplicativo diretamente para a fonte do vídeo
         res.writeHead(302, { 'Location': canal.url });
         res.end();
         return;
     }
 
-    // ===== XTREAM CODES API =====
+    // ===== PROTOCOLO XTREAM CODES API (PLAYER_API.PHP) =====
     if (pathname === '/player_api.php') {
         const username = reqUrl.searchParams.get('username');
         const password = reqUrl.searchParams.get('password');
@@ -236,6 +272,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // 1. Autenticação Inicial
         if (!action) {
             const respostaAuth = {
                 user_info: {
@@ -266,6 +303,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // 2. Categorias de Canais
         if (action === 'get_live_categories') {
             const categorias = [
                 { category_id: "1", category_name: "SSTV", parent_id: 0 },
@@ -278,13 +316,9 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // 3. Lista de Canais ao Vivo
         if (action === 'get_live_streams') {
-            let canais = obterCanais();
-            if (canais.length === 0) {
-                await atualizarCacheCanais();
-                canais = cacheCanais;
-            }
-
+            const canais = obterCanais();
             const categoryMap = { 'SSTV': '1', 'STV': '2', 'SSApp': '3', 'DNSRot': '4' };
 
             const streamsFormatados = canais.map((c, index) => {
@@ -309,6 +343,7 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // 4. VODs e Séries (Garante retorno limpo para não travar o Vector Player)
         if (action === 'get_vod_categories' || action === 'get_series_categories' ||
             action === 'get_vod_streams' || action === 'get_series') {
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -317,7 +352,7 @@ const server = http.createServer(async (req, res) => {
         }
     }
 
-    // ===== GET.PHP / PLAYLIST M3U =====
+    // ===== ROTA /GET.PHP E PLAYLIST M3U =====
     if (pathname === '/get.php' || pathname === '/playlist.m3u' || pathname === '/') {
         const username = reqUrl.searchParams.get('username');
         const password = reqUrl.searchParams.get('password');
@@ -325,7 +360,7 @@ const server = http.createServer(async (req, res) => {
 
         if (pathname === '/' && !username && !password && !mac) {
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-            res.end('<h3>IPTV Manager Pro Online</h3><p>Servidor Xtream Codes Ativo com Cache e Streaming.</p>');
+            res.end('<h3>IPTV Manager Pro Online</h3><p>Servidor Xtream Codes de Alta Performance Ativo.</p>');
             return;
         }
 
@@ -348,7 +383,7 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // ===== API: USUARIOS =====
+    // ===== API INTERNA DE USUÁRIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, data: usuarios }));
@@ -359,13 +394,17 @@ const server = http.createServer(async (req, res) => {
     res.end('Rota não encontrada');
 });
 
+// Inicialização com pré-carregamento imediato do cache
 server.listen(PORT, async () => {
-    console.log('📺 IPTV Manager Pro - Servidor Xtream Codes de Alta Performance');
-    console.log('⚡ Carregando cache de canais na inicialização...');
+    console.log('==================================================');
+    console.log('📺 IPTV Manager Pro - Servidor Xtream Codes Ativo!');
+    console.log(`🌐 Porta: ${PORT}`);
+    console.log('⚡ Efetuando pré-carregamento de canais...');
+    console.log('==================================================');
     await atualizarCacheCanais();
-    console.log('🚀 Pronto para atender Vector Player, TV Garden e todos os players Xtream!');
 });
 
+// Atualização programada a cada 20 minutos
 setInterval(() => {
     atualizarCacheCanais();
 }, 20 * 60 * 1000);
