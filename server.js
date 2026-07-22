@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - MÚLTIPLOS SERVIDORES VECTOR
+// IPTV MANAGER PRO - AGREGADOR DE SERVIDORES
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -11,36 +11,36 @@ const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
 // ============================================
-// SERVIDORES VECTOR PLAYER (ESTÁVEIS)
+// SERVIDORES ESTÁVEIS (VECTOR PLAYER)
 // ============================================
-const SERVERS_VECTOR = [
+const SERVERS = [
     {
         id: 1,
         url: 'http://stv.sstv.cx:80',
         usuario: 'Farleyjm',
         senha: 'yz6ncyyfadu',
-        nome: 'SSTV Server'
+        nome: 'SSTV'
     },
     {
         id: 2,
         url: 'http://stv.cx:80',
         usuario: 'Farleyjm',
         senha: 'yz6ncyyfadu',
-        nome: 'STV Server'
+        nome: 'STV'
     },
     {
         id: 3,
         url: 'http://ssapp.ch:80',
         usuario: 'Farleyjm',
         senha: 'yz6ncyyfadu',
-        nome: 'SSApp Server'
+        nome: 'SSApp'
     },
     {
         id: 4,
         url: 'http://play.dnsrot.vip:80',
         usuario: 'Farleyjm',
         senha: 'yz6ncyyfadu',
-        nome: 'DNSRot Server'
+        nome: 'DNSRot'
     }
 ];
 
@@ -59,9 +59,6 @@ function obterIpLocal() {
     return 'localhost';
 }
 
-// ============================================
-// FUNÇÃO: VALIDAR MAC
-// ============================================
 function validarMac(mac) {
     if (!mac) return true;
     mac = mac.trim().toUpperCase().replace(/\s/g, '');
@@ -73,7 +70,7 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR CANAIS DE UM SERVIDOR VECTOR
+// FUNÇÃO: BUSCAR CANAIS DE UM SERVIDOR
 // ============================================
 async function buscarCanaisServer(server) {
     try {
@@ -87,12 +84,11 @@ async function buscarCanaisServer(server) {
         }
         
         const playlist = await response.text();
-        console.log(`✅ ${server.nome}: Playlist baixada (${playlist.length} bytes)`);
+        console.log(`✅ ${server.nome}: ${playlist.length} bytes`);
         
         const linhas = playlist.split('\n');
         const canais = [];
         let canalAtual = null;
-        let count = 0;
         
         for (const linha of linhas) {
             const linhaLimpa = linha.trim();
@@ -101,35 +97,39 @@ async function buscarCanaisServer(server) {
                 const nome = matchNome ? matchNome[1] : 'Canal';
                 const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
                 const logo = matchLogo ? matchLogo[1] : '';
-                canalAtual = { nome, url: '', logo, grupo: server.nome };
+                canalAtual = { nome, url: '', logo, origem: server.nome };
             } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
                 if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
                     canalAtual.url = linhaLimpa;
                     canais.push(canalAtual);
-                    count++;
                 }
                 canalAtual = null;
             }
         }
-        console.log(`✅ ${server.nome}: ${count} canais encontrados`);
+        console.log(`✅ ${server.nome}: ${canais.length} canais`);
         return canais;
     } catch (error) {
-        console.error(`❌ Erro no ${server.nome}:`, error.message);
+        console.error(`❌ ${server.nome}: ${error.message}`);
         return [];
     }
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR TODOS OS SERVIDORES VECTOR
+// FUNÇÃO: BUSCAR TODOS OS SERVIDORES EM PARALELO
 // ============================================
-async function buscarTodosServidoresVector() {
+async function buscarTodosServidores() {
+    console.log('🚀 A buscar canais de todos os servidores em paralelo...');
+    
+    const resultados = await Promise.all(
+        SERVERS.map(server => buscarCanaisServer(server))
+    );
+    
     const todosCanais = [];
     const vistos = new Set();
     
-    for (const server of SERVERS_VECTOR) {
-        const canais = await buscarCanaisServer(server);
+    resultados.forEach((canais, index) => {
+        const nomeServer = SERVERS[index].nome;
         let adicionados = 0;
-        
         for (const canal of canais) {
             const key = canal.nome + '|' + canal.url;
             if (!vistos.has(key)) {
@@ -138,78 +138,15 @@ async function buscarTodosServidoresVector() {
                 adicionados++;
             }
         }
-        console.log(`📊 ${server.nome}: ${adicionados} canais únicos adicionados`);
-    }
+        console.log(`📊 ${nomeServer}: ${adicionados} canais únicos`);
+    });
     
-    console.log(`✅ Total: ${todosCanais.length} canais únicos de todos os servidores`);
+    console.log(`✅ Total: ${todosCanais.length} canais únicos`);
     return todosCanais;
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR CANAIS DO TV GARDEN (COMPLEMENTO)
-// ============================================
-async function buscarCanaisTVGarden() {
-    try {
-        console.log('📡 [TV GARDEN] A buscar canais complementares...');
-        const url = 'https://iptv-org.github.io/iptv/index.m3u';
-        const response = await fetch(url);
-        if (!response.ok) {
-            console.log('⚠️ TV Garden indisponível');
-            return [];
-        }
-        const playlist = await response.text();
-        const linhas = playlist.split('\n');
-        const canais = [];
-        let canalAtual = null;
-        let count = 0;
-
-        const paisesInteresse = ['AO', 'MZ', 'PT', 'BR', 'FR', 'ES', 'GB', 'US', 'DE', 'IT'];
-        const categoriasInteresse = ['movies', 'series', 'sports', 'news', 'music', 'kids'];
-
-        for (const linha of linhas) {
-            const linhaLimpa = linha.trim();
-            if (linhaLimpa.startsWith('#EXTINF:')) {
-                const matchNome = linhaLimpa.match(/,([^,]+)$/);
-                const nome = matchNome ? matchNome[1] : 'Canal';
-                const matchGrupo = linhaLimpa.match(/group-title="([^"]+)"/);
-                const grupo = matchGrupo ? matchGrupo[1] : '';
-                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
-                const logo = matchLogo ? matchLogo[1] : '';
-                
-                let isInteresse = false;
-                if (grupo) {
-                    const grupoLower = grupo.toLowerCase();
-                    for (const pais of paisesInteresse) {
-                        if (grupoLower.includes(pais.toLowerCase())) isInteresse = true;
-                    }
-                    for (const cat of categoriasInteresse) {
-                        if (grupoLower.includes(cat)) isInteresse = true;
-                    }
-                }
-                if (isInteresse) {
-                    canalAtual = { nome, url: '', logo, grupo };
-                } else {
-                    canalAtual = null;
-                }
-            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
-                if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
-                    canalAtual.url = linhaLimpa;
-                    canais.push(canalAtual);
-                    count++;
-                }
-                canalAtual = null;
-            }
-        }
-        console.log(`✅ TV Garden: ${count} canais complementares`);
-        return canais;
-    } catch (error) {
-        console.error('❌ Erro no TV Garden:', error.message);
-        return [];
-    }
-}
-
-// ============================================
-// FUNÇÃO: GERAR PLAYLIST M3U (ORGANIZADA)
+// FUNÇÃO: GERAR PLAYLIST M3U
 // ============================================
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
@@ -217,17 +154,7 @@ async function gerarPlaylistM3U(usuario) {
 
     console.log(`📡 Gerando playlist para ${usuario.username}...`);
 
-    // 1. Buscar todos os servidores Vector
-    let canais = await buscarTodosServidoresVector();
-    console.log(`📊 Vector: ${canais.length} canais`);
-
-    // 2. Se tiver poucos canais, buscar TV Garden
-    if (canais.length < 100) {
-        console.log('⚠️ Poucos canais Vector, buscando complemento...');
-        const tvGarden = await buscarCanaisTVGarden();
-        canais = [...canais, ...tvGarden];
-        console.log(`📊 Total: ${canais.length} canais`);
-    }
+    const canais = await buscarTodosServidores();
 
     if (canais.length === 0) {
         console.log('⚠️ Nenhum canal encontrado');
@@ -245,27 +172,13 @@ async function gerarPlaylistM3U(usuario) {
     // Organizar por servidor de origem
     const grupos = {};
     canaisSelecionados.forEach(canal => {
-        let grupo = canal.grupo || '📡 Vector Player';
-        if (grupo.includes('SSTV')) grupo = '📡 SSTV Server';
-        if (grupo.includes('STV')) grupo = '📡 STV Server';
-        if (grupo.includes('SSApp')) grupo = '📡 SSApp Server';
-        if (grupo.includes('DNSRot')) grupo = '📡 DNSRot Server';
-        if (grupo.includes('TV Garden')) grupo = '🌍 TV Garden';
-        
+        const grupo = canal.origem || '📡 Vector';
         if (!grupos[grupo]) grupos[grupo] = [];
         grupos[grupo].push(canal);
     });
 
     // Ordenar grupos
-    const ordemGrupos = [
-        '📡 SSTV Server',
-        '📡 STV Server',
-        '📡 SSApp Server',
-        '📡 DNSRot Server',
-        '🌍 TV Garden',
-        '📺 Outros'
-    ];
-
+    const ordemGrupos = ['SSTV', 'STV', 'SSApp', 'DNSRot'];
     const gruposOrdenados = [];
     for (const grupo of ordemGrupos) {
         if (grupos[grupo]) {
@@ -279,15 +192,14 @@ async function gerarPlaylistM3U(usuario) {
 
     for (const grupo of gruposOrdenados) {
         const canaisDoGrupo = grupos[grupo] || [];
-        playlist += `#EXTINF:-1 tvg-logo="",📁 ${grupo}\n`;
+        playlist += `#EXTINF:-1 tvg-logo="",📁 📡 ${grupo}\n`;
         playlist += `#EXTGRP:${grupo}\n`;
         
         canaisDoGrupo.forEach(canal => {
             const logo = canal.logo || '';
             const nome = canal.nome || 'Canal';
-            const urlCanal = canal.url || '#';
             playlist += `#EXTINF:-1 tvg-logo="${logo}",${nome}\n`;
-            playlist += `${urlCanal}\n`;
+            playlist += `${canal.url}\n`;
         });
         playlist += '\n';
     }
@@ -360,7 +272,8 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    if (pathname === '/playlist.m3u') {
+    // ===== PLAYLIST (M3U e Xtream Codes) =====
+    if (pathname === '/playlist.m3u' || pathname === '/get.php') {
         const username = parsedUrl.query.username;
         const password = parsedUrl.query.password;
         const mac = parsedUrl.query.mac;
@@ -388,6 +301,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // ===== API: USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
         const usuariosLimpos = usuarios.map(u => ({
             id: u.id,
@@ -404,6 +318,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // ===== API: CRIAR =====
     if (pathname === '/api/criar' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -476,6 +391,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // ===== API: EXCLUIR =====
     if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
         const id = pathname.replace('/api/excluir/', '');
         const index = usuarios.findIndex(u => u.id === id);
@@ -491,6 +407,7 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // ===== ARQUIVOS ESTÁTICOS =====
     let filePath = '.' + pathname;
     if (filePath === './') filePath = './public/index.html';
     if (!filePath.startsWith('./public')) filePath = './public' + pathname;
