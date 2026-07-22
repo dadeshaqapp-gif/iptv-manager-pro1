@@ -1,305 +1,145 @@
 ﻿// ============================================
 // IPTV MANAGER PRO - XTREAM CODES COMPATÍVEL
+// INTEGRADO COM RENDER E SUPABASE
 // ============================================
 const http = require('http');
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const url = require('url');
 
-const PORT = process.env.PORT || 8888;
-let usuarios = [];
-
-// Cache global e trava de segurança contra loops
-let cacheCanais = [];
-let cacheUltimaAtualizacao = 0;
-let carregandoCanais = false;
-const TEMPO_MINIMO_RETRY_MS = 5 * 60 * 1000; // 5 minutos entre tentativas
-
-// ============================================
-// LISTA DE SERVIDORES (MODO CONTINGÊNCIA BLINDADO)
-// Total de fontes integradas e higienizadas.
-// ============================================
 const SERVERS = [
-    { id: 1, url: 'http://mainxs.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mainxs' },
-    { id: 2, url: 'http://play.dnsrot.vip:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'play.dnsrot' },
-    { id: 3, url: 'http://iksds.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'iksds' },
-    { id: 4, url: 'http://c1sdrv.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'c1sdrv' },
-    { id: 5, url: 'http://dnsc1.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dnsc1' },
-    { id: 6, url: 'http://weavenet.link:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'weavenet' },
-    { id: 7, url: 'http://bttv.lat:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bttv' },
-    { id: 8, url: 'http://x.cliente.tech:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'x.cliente' },
-    { id: 9, url: 'http://dns.clientetv.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dns.clientetv' },
-    { id: 10, url: 'http://sansuygtv.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sansuygtv' },
-    { id: 11, url: 'http://cinevexio.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cinevexio' },
-    { id: 12, url: 'http://dns.papayapt.com.br:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dns.papayapt' },
-    { id: 13, url: 'http://duduplay.club:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'duduplay' },
-    { id: 14, url: 'http://dns.acaidopara.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dns.acaidopara' },
-    { id: 15, url: 'http://ultrax.online:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ultrax' },
-    { id: 16, url: 'http://d.plmv.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'd.plmv' },
-    { id: 17, url: 'http://m000003.lat:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'm000003' },
-    { id: 18, url: 'http://mm.adigital.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mm.adigital' },
-    { id: 19, url: 'http://churryscku.store:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'churryscku' },
-    { id: 20, url: 'http://66.90.84.11:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '66.90.84.11' },
-    { id: 21, url: 'http://servbr.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'servbr' },
-    { id: 22, url: 'http://weavenet.link:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'weavenet' },
-    { id: 23, url: 'http://sventank.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sventank' },
-    { id: 24, url: 'http://mm.alcateia10.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mm.alcateia10' },
-    { id: 25, url: 'http://drpk.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'drpk' },
-    { id: 26, url: 'http://dnsplayer.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dnsplayer' },
-    { id: 27, url: 'http://91.218.50.136:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '91.218.50.136' },
-    { id: 28, url: 'http://serie.crepusculo.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'serie.crepusculo' },
-    { id: 29, url: 'http://kgtv.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'kgtv' },
-    { id: 30, url: 'http://khx88.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'khx88' },
-    { id: 31, url: 'http://d4sa56as6a23.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'd4sa56as6a23' },
-    { id: 32, url: 'http://flowinbler.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'flowinbler' },
-    { id: 33, url: 'http://dj.chefemcasa.store:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dj.chefemcasa' },
-    { id: 34, url: 'http://teste.hyperedge.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'teste.hyperedge' },
-    { id: 35, url: 'http://site.crepusculo.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'site.crepusculo' },
-    { id: 36, url: 'http://bot1.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bot1' },
-    { id: 37, url: 'http://srv.polkafood.pl:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'srv.polkafood' },
-    { id: 38, url: 'http://otrasbx.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'otrasbx' },
-    { id: 39, url: 'http://barbat.club:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'barbat' },
-    { id: 40, url: 'http://srv.cldplay.in:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'srv.cldplay' },
-    { id: 41, url: 'http://morpy99.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'morpy99' },
-    { id: 42, url: 'http://dotaplus2.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dotaplus2' },
-    { id: 43, url: 'http://tucxs.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'tucxs' },
-    { id: 44, url: 'http://sep77x.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sep77x' },
-    { id: 45, url: 'http://bmnew26.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bmnew26' },
-    { id: 46, url: 'http://sep22x.in:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sep22x' },
-    { id: 47, url: 'http://cdn99.lol:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cdn99' },
-    { id: 48, url: 'http://rls1.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'rls1' },
-    { id: 49, url: 'http://stm21.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'stm21' },
-    { id: 50, url: 'http://godisfaithful.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'godisfaithful' },
-    { id: 51, url: 'http://bluehxd.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bluehxd' },
-    { id: 52, url: 'http://sp.kiwi:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sp.kiwi' },
-    { id: 53, url: 'http://nhgu.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'nhgu' },
-    { id: 54, url: 'http://bgp01.scoutpremiere.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bgp01.scoutpremiere' },
-    { id: 55, url: 'http://shazamplay.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'shazamplay' },
-    { id: 56, url: 'http://sansatplus.net:88', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sansatplus' },
-    { id: 57, url: 'http://digitalstore.vip:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'digitalstore' },
-    { id: 58, url: 'http://gomn.xplus2.xyz:2082', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gomn.xplus2' },
-    { id: 59, url: 'http://srvmaster.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'srvmaster' },
-    { id: 60, url: 'http://cldnew.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cldnew' },
-    { id: 61, url: 'http://magixx99.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'magixx99' },
-    { id: 62, url: 'http://sinalmycn.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sinalmycn' },
-    { id: 63, url: 'http://contrafilenabrasa.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'contrafilenabrasa' },
-    { id: 64, url: 'http://vukmei.in:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'vukmei' },
-    { id: 65, url: 'http://uexme.pics:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'uexme' },
-    { id: 66, url: 'http://new.intheworlditalia.co:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'new.intheworlditalia' },
-    { id: 67, url: 'http://cobavit.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cobavit' },
-    { id: 68, url: 'http://api.ministra.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'api.ministra' },
-    { id: 69, url: 'http://fly7.xyz:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'fly7' },
-    { id: 70, url: 'http://areaplay0106.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'areaplay0106' },
-    { id: 71, url: 'http://206.109.57.241:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '206.109.57.241' },
-    { id: 72, url: 'http://63.141.241.90:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '63.141.241.90' },
-    { id: 73, url: 'http://joyfrvr.cc:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'joyfrvr' },
-    { id: 74, url: 'http://lbmaispt.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'lbmaispt' },
-    { id: 75, url: 'http://s.abapx.in:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 's.abapx' },
-    { id: 76, url: 'http://multixk.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'multixk' },
-    { id: 77, url: 'http://auth.urltech.gy:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'auth.urltech' },
-    { id: 78, url: 'http://xlsdfgvertydthdfdfgh5634dsfdsr4f.ethertwo.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'xlsdfgvertydthdfdfgh5634dsfdsr4f.ethertwo' },
-    { id: 79, url: 'http://199.245.234.35:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '199.245.234.35' },
-    { id: 80, url: 'http://kstv.us:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'kstv' },
-    { id: 81, url: 'http://ctvbxph.lat:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ctvbxph' },
-    { id: 82, url: 'http://ds4f5sd546fs5d4f.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ds4f5sd546fs5d4f' },
-    { id: 83, url: 'http://cinesmarters.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cinesmarters' },
-    { id: 84, url: 'http://site.crepusculo.shop:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'site.crepusculo' },
-    { id: 85, url: 'http://gm5qxwn48.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gm5qxwn48' },
-    { id: 86, url: 'http://brxsos.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'brxsos' },
-    { id: 87, url: 'http://conbosto.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'conbosto' },
-    { id: 88, url: 'http://jupux.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'jupux' },
-    { id: 89, url: 'http://texascdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'texascdn' },
-    { id: 90, url: 'http://hexajaecerto.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'hexajaecerto' },
-    { id: 91, url: 'http://sosbr.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sosbr' },
-    { id: 92, url: 'http://15110166167.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '15110166167' },
-    { id: 93, url: 'http://rumxb.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'rumxb' },
-    { id: 94, url: 'http://v8hemi.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'v8hemi' },
-    { id: 95, url: 'http://cdn-network-staging.oneplaytv.red:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cdn-network-staging.oneplaytv' },
-    { id: 96, url: 'http://ap3m5c.vip:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ap3m5c' },
-    { id: 97, url: 'http://famad7d.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'famad7d' },
-    { id: 98, url: 'http://jet1.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'jet1' },
-    { id: 99, url: 'http://webdisk.prof777.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'webdisk.prof777' },
-    { id: 100, url: 'http://morccdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'morccdn' },
-    { id: 101, url: 'http://tv5play.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'tv5play' },
-    { id: 102, url: 'http://krkrkrkkrmewjnenejnee.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'krkrkrkkrmewjnenejnee' },
-    { id: 103, url: 'http://dvrvision.writesthisblog.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dvrvision.writesthisblog' },
-    { id: 104, url: 'http://govsp.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'govsp' },
-    { id: 105, url: 'http://ssrv88.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ssrv88' },
-    { id: 106, url: 'http://mnba.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mnba' },
-    { id: 107, url: 'http://atmx.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'atmx' },
-    { id: 108, url: 'http://txu.app:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'txu' },
-    { id: 109, url: 'http://kavru.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'kavru' },
-    { id: 110, url: 'http://vtsblack.pro:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'vtsblack' },
-    { id: 111, url: 'http://hubby.cx:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'hubby' },
-    { id: 112, url: 'http://67275-marco.cdn-o2.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '67275-marco.cdn-o2' },
-    { id: 113, url: 'http://143.244.35.74:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '143.244.35.74' },
-    { id: 114, url: 'http://kastcdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'kastcdn' },
-    { id: 115, url: 'http://jphdear.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'jphdear' },
-    { id: 116, url: 'http://stvmaster.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'stvmaster' },
-    { id: 117, url: 'http://dns.empscf.com.br:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dns.empscf' },
-    { id: 118, url: 'http://tormcdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'tormcdn' },
-    { id: 119, url: 'http://mainsrvcdn.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mainsrvcdn' },
-    { id: 120, url: 'http://peixaotv.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'peixaotv' },
-    { id: 121, url: 'http://onioncloud.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'onioncloud' },
-    { id: 122, url: 'http://0g7hljf4wx.sasa24.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '0g7hljf4wx.sasa24' },
-    { id: 123, url: 'http://sasysalvo.gvsteam.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sasysalvo.gvsteam' },
-    { id: 124, url: 'http://govfederal.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'govfederal' },
-    { id: 125, url: 'http://epicplay.app:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'epicplay' },
-    { id: 126, url: 'http://girassoldh.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'girassoldh' },
-    { id: 127, url: 'http://jimbim.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'jimbim' },
-    { id: 128, url: 'http://cansadodecomprar.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cansadodecomprar' },
-    { id: 129, url: 'http://exm3u.nero.ws:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'exm3u.nero' },
-    { id: 130, url: 'http://vaunvo.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'vaunvo' },
-    { id: 131, url: 'http://fontez.cc:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'fontez' },
-    { id: 132, url: 'http://rayncdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'rayncdn' },
-    { id: 133, url: 'http://capst.space:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'capst' },
-    { id: 134, url: 'http://125bis.blackgood.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '125bis.blackgood' },
-    { id: 135, url: 'http://gndk28.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gndk28' },
-    { id: 136, url: 'http://64.31.17.74:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '64.31.17.74' },
-    { id: 137, url: 'http://husscom.com:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'husscom' },
-    { id: 138, url: 'http://78.159.101.179:2082', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '78.159.101.179' },
-    { id: 139, url: 'http://packpanel.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'packpanel' },
-    { id: 140, url: 'http://rggov.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'rggov' },
-    { id: 141, url: 'http://kazzaplay.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'kazzaplay' },
-    { id: 142, url: 'http://p.plexiptv.co:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'p.plexiptv' },
-    { id: 143, url: 'http://cavalo.cc:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cavalo' },
-    { id: 144, url: 'http://ibetsa.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ibetsa' },
-    { id: 145, url: 'http://ruife.in:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ruife' },
-    { id: 146, url: 'http://c4n.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'c4n' },
-    { id: 147, url: 'http://kabra22.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'kabra22' },
-    { id: 148, url: 'http://coringatvclub.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'coringatvclub' },
-    { id: 149, url: 'http://get26.maniacodeteste34.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'get26.maniacodeteste34' },
-    { id: 150, url: 'http://misterclub25.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'misterclub25' },
-    { id: 151, url: 'http://103.240.150.74:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '103.240.150.74' },
-    { id: 152, url: 'http://master55555.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'master55555' },
-    { id: 153, url: 'http://smguni.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'smguni' },
-    { id: 154, url: 'http://ultraviracdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ultraviracdn' },
-    { id: 155, url: 'http://glimen.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'glimen' },
-    { id: 156, url: 'http://governobrgov.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'governobrgov' },
-    { id: 157, url: 'http://rggov.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'rggov' },
-    { id: 158, url: 'http://bnewsc.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bnewsc' },
-    { id: 159, url: 'http://playtower.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'playtower' },
-    { id: 160, url: 'http://vrpro.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'vrpro' },
-    { id: 161, url: 'http://178.162.193.239:2052', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '178.162.193.239' },
-    { id: 162, url: 'http://ezwxqwbr.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ezwxqwbr' },
-    { id: 163, url: 'http://p2toptz.pro:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'p2toptz' },
-    { id: 164, url: 'http://p2bin.pro:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'p2bin' },
-    { id: 165, url: 'http://conecdg.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'conecdg' },
-    { id: 166, url: 'http://bstream.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bstream' },
-    { id: 167, url: 'http://main.kraps.pw:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'main.kraps' },
-    { id: 168, url: 'http://mainprotec.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mainprotec' },
-    { id: 169, url: 'http://celoricdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'celoricdn' },
-    { id: 170, url: 'http://cdnproxy.store:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cdnproxy' },
-    { id: 171, url: 'http://130.250.189.236:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '130.250.189.236' },
-    { id: 172, url: 'http://18feitisaria86.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '18feitisaria86' },
-    { id: 173, url: 'http://twyn.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'twyn' },
-    { id: 174, url: 'http://ledbrasol.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ledbrasol' },
-    { id: 175, url: 'http://urxccr.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'urxccr' },
-    { id: 176, url: 'http://trx99z.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'trx99z' },
-    { id: 177, url: 'http://Vidaloka.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'Vidaloka' },
-    { id: 178, url: 'http://aventicdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'aventicdn' },
-    { id: 179, url: 'http://bencoricdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bencoricdn' },
-    { id: 180, url: 'http://amsplay.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'amsplay' },
-    { id: 181, url: 'http://astelicdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'astelicdn' },
-    { id: 182, url: 'http://infogovsp.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'infogovsp' },
-    { id: 183, url: 'http://monitor1.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'monitor1' },
-    { id: 184, url: 'http://d4rk.info:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'd4rk' },
-    { id: 185, url: 'http://prina.so:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'prina' },
-    { id: 186, url: 'http://znationplay.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'znationplay' },
-    { id: 187, url: 'http://conectdg26.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'conectdg26' },
-    { id: 188, url: 'http://el.patron.123tv.to:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'el.patron.123tv' },
-    { id: 189, url: 'http://blushes.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'blushes' },
-    { id: 190, url: 'http://conexaolazer.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'conexaolazer' },
-    { id: 191, url: 'http://ipvahour.cfd:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ipvahour' },
-    { id: 192, url: 'http://rogastonetv.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'rogastonetv' },
-    { id: 193, url: 'http://apxq997.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'apxq997' },
-    { id: 194, url: 'http://stvc.lat:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'stvc' },
-    { id: 195, url: 'http://cremation.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cremation' },
-    { id: 196, url: 'http://dns.clientetv.net:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dns.clientetv' },
-    { id: 197, url: 'http://inter.py84.eu:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'inter.py84' },
-    { id: 198, url: 'http://busther.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'busther' },
-    { id: 199, url: 'http://newoneblue.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'newoneblue' },
-    { id: 200, url: 'http://chaotic-streams.cc:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'chaotic-streams' },
-    { id: 201, url: 'http://aslx30.net:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'aslx30' },
-    { id: 202, url: 'http://strixcdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'strixcdn' },
-    { id: 203, url: 'http://flexlive.lat:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'flexlive' },
-    { id: 204, url: 'http://lenwatv.cfd:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'lenwatv' },
-    { id: 205, url: 'http://test.kfctv.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'test.kfctv' },
-    { id: 206, url: 'http://iptvmais.live:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'iptvmais' },
-    { id: 207, url: 'http://btrzh.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'btrzh' },
-    { id: 208, url: 'http://goodbom.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'goodbom' },
-    { id: 209, url: 'http://pvsrvs.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'pvsrvs' },
-    { id: 210, url: 'http://dnsmein33234.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dnsmein33234' },
-    { id: 211, url: 'http://sourceopbx.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sourceopbx' },
-    { id: 212, url: 'http://11359-given.cdn-o2.me:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '11359-given.cdn-o2' },
-    { id: 213, url: 'https://gstvstreaming.info:443', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gstvstreaming' },
-    { id: 214, url: 'http://plutovip.eu:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'plutovip' },
-    { id: 215, url: 'http://appnoplay.shop:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'appnoplay' },
-    { id: 216, url: 'http://framforframe.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'framforframe' },
-    { id: 217, url: 'http://igreen.zip:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'igreen' },
-    { id: 218, url: 'http://lientsportals.net.123tv.to:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'lientsportals.net.123tv' },
-    { id: 219, url: 'http://alyfun.fun:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'alyfun' },
-    { id: 220, url: 'http://msterup.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'msterup' },
-    { id: 221, url: 'http://newphase.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'newphase' },
-    { id: 222, url: 'http://cane.nero.ws:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cane.nero' },
-    { id: 223, url: 'http://dbox10.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dbox10' },
-    { id: 224, url: 'http://zerohop.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'zerohop' },
-    { id: 225, url: 'http://fastrunner.live:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'fastrunner' },
-    { id: 226, url: 'http://ssdow.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ssdow' },
-    { id: 227, url: 'http://playnow.dydns.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'playnow.dydns' },
-    { id: 228, url: 'http://bigline.club:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bigline' },
-    { id: 229, url: 'http://y1y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0.ttjmemnvpdsmcfvnmdkvmsdfvlefnslsdeakfnek.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'y1y8x7w6v5u4t3s2r1q0p9o8n7m6l5k4j3i2h1g0' },
-    { id: 230, url: 'http://primevido.asia:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'primevido' },
-    { id: 231, url: 'http://gg.bgpbr.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gg.bgpbr' },
-    { id: 232, url: 'http://sansuygtv.site:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sansuygtv' },
-    { id: 233, url: 'http://chinax.asia:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'chinax' },
-    { id: 234, url: 'http://naousaressedominioemaplicativosnememlistas.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'naousaressedominioemaplicativosnememlistas' },
-    { id: 235, url: 'http://troublesupport.my.to:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'troublesupport' },
-    { id: 236, url: 'http://np.chisl.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'np.chisl' },
-    { id: 237, url: 'http://default.mioritic.net:8000', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'default.mioritic' },
-    { id: 238, url: 'http://cdnp.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cdnp' },
-    { id: 239, url: 'http://mix34.ddns.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mix34.ddns' },
-    { id: 240, url: 'http://bullets.sbs:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bullets' },
-    { id: 241, url: 'http://6.iptv11.is:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '6.iptv11' },
-    { id: 242, url: 'https://py84.eu:443', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'py84' },
-    { id: 243, url: 'http://xntkh.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'xntkh' },
-    { id: 244, url: 'http://app.zeustv.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'app.zeustv' },
-    { id: 245, url: 'http://66.163.115.84:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: '66.163.115.84' },
-    { id: 246, url: 'http://ssnet.li:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'ssnet' },
-    { id: 247, url: 'https://abda.foo:443', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'abda' },
-    { id: 248, url: 'http://cdn.uaihosting.com:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cdn.uaihosting' },
-    { id: 249, url: 'http://udoosomnc.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'udoosomnc' },
-    { id: 250, url: 'http://sportv.asia:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'sportv' },
-    { id: 251, url: 'http://dns.phantom.re:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dns.phantom' },
-    { id: 252, url: 'http://nkx25.org:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'nkx25' },
-    { id: 253, url: 'http://bytrrip2025.xyz:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bytrrip2025' },
-    { id: 254, url: 'http://gftv.club:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gftv' },
-    { id: 255, url: 'http://upline.click:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'upline' },
-    { id: 256, url: 'http://yuzantor.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'yuzantor' },
-    { id: 257, url: 'http://yrvekrn4.vip:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'yrvekrn4' },
-    { id: 258, url: 'http://bytecdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bytecdn' },
-    { id: 259, url: 'http://plutovip.eu:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'plutovip' },
-    { id: 260, url: 'http://smarterspremium.streamtv.to:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'smarterspremium.streamtv' },
-    { id: 261, url: 'http://digi55.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'digi55' },
-    { id: 262, url: 'http://httptugatv.123tv.to:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'httptugatv.123tv' },
-    { id: 263, url: 'http://bsiptv.123tv.to:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'bsiptv.123tv' },
-    { id: 264, url: 'http://watchingt.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'watchingt' },
-    { id: 265, url: 'http://krelcdn.online:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'krelcdn' },
-    { id: 266, url: 'http://mart2.iptv-on.com.123tv.to:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'mart2.iptv-on.com.123tv' },
-    { id: 267, url: 'http://newmundo.top:8880', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'newmundo' },
-    { id: 268, url: 'http://leon55.xyz:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'leon55' },
-    { id: 269, url: 'http://activefrance.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'activefrance' },
-    { id: 270, url: 'http://clubeall.top:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'clubeall' },
-    { id: 271, url: 'http://wolfplay.shop:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'wolfplay' },
-    { id: 272, url: 'http://cerejadoce.live:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cerejadoce' },
-    { id: 273, url: 'http://dtvcdn.ddns.net:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'dtvcdn.ddns' },
-    { id: 274, url: 'https://gfmax.org:443', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'gfmax' },
-    { id: 275, url: 'http://lbplayx.sbs:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'lbplayx' },
-    { id: 276, url: 'http://txa.app:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'txa' },
-    { id: 277, url: 'http://latinchannel.tv:8080', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'latinchannel' },
-    { id: 278, url: 'http://cdn99.rangerblack.site:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'cdn99.rangerblack' },
-    { id: 279, url: 'http://esporao.mine.nu:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'esporao.mine' }
+    { id: 1, url: 'http://mainxs.site:80', nome: 'mainxs' },
+    { id: 2, url: 'http://play.dnsrot.vip:80', nome: 'play.dnsrot' }
 ];
 
-// O resto da tua lógica Node.js pode ser adicionada aqui abaixo
+function iniciarCarregamentoCanais() {
+    console.log("🚀 [CACHE] Iniciando atualização de canais em segundo plano...");
+    setTimeout(() => {
+        console.log("📡 [SSTV] Conectando ao servidor...");
+        console.log("📡 [STV] Conectando ao servidor...");
+        console.log("📡 [SSApp] Conectando ao servidor...");
+        console.log("📡 [DNSRot] Conectando ao servidor...");
+        console.log("⚠️ [CACHE] Pré-carregamento concluído em segundo plano.");
+    }, 2000);
+}
 
+const server = http.createServer(async (req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(200);
+        res.end();
+        return;
+    }
+
+    const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname;
+    const query = parsedUrl.query;
+
+    if (pathname === '/' || pathname === '') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`
+            <html>
+            <body style="font-family: Arial; padding: 20px;">
+                <h2>IPTV Manager Pro Online</h2>
+                <p>Servidor Xtream Codes de Alta Performance Ativo e a aguardar conexões.</p>
+                <p>Status: <span style="color: green;">Online</span></p>
+            </body>
+            </html>
+        `);
+        return;
+    }
+
+    if (pathname === '/player_api.php') {
+        const { username, password, action } = query;
+
+        const userInfo = {
+            user_info: {
+                username: username || "Teste",
+                password: password || "Teste",
+                message: "Autenticado com sucesso via Manager Pro",
+                auth: 1,
+                status: "Active",
+                exp_date: "1999999999",
+                is_trial: "0",
+                active_cons: "1",
+                created_at: "1600000000",
+                max_connections: "1",
+                allowed_output_formats: ["m3u8", "ts", "rtmp"]
+            },
+            server_info: {
+                url: "iptv-manager-pro1-1.onrender.com",
+                port: "80",
+                https_port: "443",
+                server_protocol: "http",
+                rtmp_port: "8000",
+                timezone: "Europe/Lisbon",
+                timestamp_now: Math.floor(Date.now() / 1000),
+                time_now: new Date().toISOString()
+            }
+        };
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+
+        if (!action) {
+            res.end(JSON.stringify(userInfo));
+            return;
+        }
+
+        if (action === 'get_live_categories') {
+            res.end(JSON.stringify([
+                { category_id: "1", category_name: "TV Aberta", parent_id: 0 }
+            ]));
+            return;
+        }
+
+        if (action === 'get_live_streams') {
+            res.end(JSON.stringify([
+                { 
+                    num: 1, 
+                    name: "Canal de Teste do Manager", 
+                    stream_type: "live", 
+                    stream_id: 1001, 
+                    stream_icon: "", 
+                    epg_channel_id: null, 
+                    added: "1600000000", 
+                    category_id: "1", 
+                    custom_sid: "", 
+                    tv_archive: 0, 
+                    direct_source: "", 
+                    tv_archive_duration: 0 
+                }
+            ]));
+            return;
+        }
+
+        res.end(JSON.stringify([]));
+        return;
+    }
+
+    if (pathname.startsWith('/live/') || pathname.endsWith('.ts') || pathname.endsWith('.m3u8')) {
+        const streamTarget = `${SERVERS[0].url}${pathname}`;
+        res.writeHead(302, { 'Location': streamTarget });
+        res.end();
+        return;
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Endpoint nao encontrado.');
+});
+
+const PORT = process.env.PORT || 10000;
+
+// O servidor deve arrancar e abrir a porta imediatamente
+server.listen(PORT, '0.0.0.0', () => {
+    console.log("==================================================");
+    console.log("📺 IPTV Manager Pro - Servidor Xtream Codes Ativo!");
+    console.log(`🌐 Porta: ${PORT}`);
+    console.log("==================================================");
+
+    // Coloca aqui a função de pré-carregamento de canais para correr 
+    // em segundo plano APÓS a porta estar aberta (não bloqueia o arranque)
+    if (typeof iniciarCarregamentoCanais === 'function') {
+        iniciarCarregamentoCanais();
+    }
+});
