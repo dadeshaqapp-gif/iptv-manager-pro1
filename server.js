@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - MÚLTIPLOS PAÍSES
+// IPTV MANAGER PRO - PRIORIZANDO VECTOR PLAYER
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -11,189 +11,13 @@ const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
 // ============================================
-// CANAIS FIXOS POR PAÍS
+// SERVIDOR VECTOR PLAYER (PRINCIPAL)
 // ============================================
-const CANAIS_FIXOS = [
-    // ===== 🎬 FILMES E SÉRIES (Pluto TV) =====
-    { nome: '🎬 Filmes Ação 24h', url: 'https://pluto.tv/acao', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Filmes Comédia 24h', url: 'https://pluto.tv/comedia', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Filmes Terror 24h', url: 'https://pluto.tv/terror', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Filmes Romance 24h', url: 'https://pluto.tv/romance', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Filmes Ficção 24h', url: 'https://pluto.tv/ficcao', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Filmes Animação 24h', url: 'https://pluto.tv/animacao', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '📺 Séries Ação 24h', url: 'https://pluto.tv/series', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Pluto TV Filmes', url: 'https://pluto.tv/filmes', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '🎬 Pluto TV Clássicos', url: 'https://pluto.tv/classicos', pais: 'INT', grupo: '🎬 Filmes' },
-    
-    // ===== 🎬 PLEX TV (Gratuita) =====
-    { nome: '🎬 Plex Filmes', url: 'https://plex.tv/filmes', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '📺 Plex Séries', url: 'https://plex.tv/series', pais: 'INT', grupo: '🎬 Filmes' },
-    
-    // ===== 🎬 VIX (Português) =====
-    { nome: '🎬 Vix Filmes', url: 'https://vix.com/filmes', pais: 'INT', grupo: '🎬 Filmes' },
-    { nome: '📺 Vix Séries', url: 'https://vix.com/series', pais: 'INT', grupo: '🎬 Filmes' },
-    // ===== 🇦🇴 ANGOLA =====
-    { nome: 'ZAP Novelas', url: 'http://zap.ao/novelas', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Viva', url: 'http://zap.ao/viva', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Cinema', url: 'http://zap.ao/cinema', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Música', url: 'http://zap.ao/musica', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Desporto', url: 'http://zap.ao/desporto', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Novelas 2', url: 'http://zap.ao/novelas2', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Filmes', url: 'http://zap.ao/filmes', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Kids', url: 'http://zap.ao/kids', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Futebol', url: 'http://zap.ao/futebol', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Notícias', url: 'http://zap.ao/noticias', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Aventura', url: 'http://zap.ao/aventura', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Vida', url: 'http://zap.ao/vida', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP Comedy', url: 'http://zap.ao/comedy', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'ZAP 360', url: 'http://zap.ao/360', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'Rádio Nacional Angola', url: 'http://zap.ao/rna', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'TPA 1', url: 'http://tpa.ao/tpa1', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'TPA 2', url: 'http://tpa.ao/tpa2', pais: 'AO', grupo: '🇦🇴 Angola' },
-    { nome: 'TPA Internacional', url: 'http://tpa.ao/internacional', pais: 'AO', grupo: '🇦🇴 Angola' },
-    
-    // ===== 🇲🇿 MOÇAMBIQUE =====
-    { nome: 'TVM', url: 'http://tvm.co.mz/tvm', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'TVM Internacional', url: 'http://tvm.co.mz/internacional', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'Stv', url: 'http://stv.co.mz/stv', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'Miramar', url: 'http://miramar.co.mz/miramar', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'Rádio Moçambique', url: 'http://rm.co.mz/rm', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'TV Sucesso', url: 'http://sucesso.co.mz/sucesso', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'TV Globo Moçambique', url: 'http://globo.co.mz/globo', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'ZAP Moçambique', url: 'http://zap.co.mz/zap', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'Maningue Magic', url: 'http://maningue.co.mz/magic', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    { nome: 'Top TV', url: 'http://top.co.mz/top', pais: 'MZ', grupo: '🇲🇿 Moçambique' },
-    
-    // ===== 🇵🇹 PORTUGAL =====
-    { nome: 'RTP 1', url: 'http://rtp.pt/rtp1', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'RTP 2', url: 'http://rtp.pt/rtp2', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'RTP 3', url: 'http://rtp.pt/rtp3', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'RTP Internacional', url: 'http://rtp.pt/internacional', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'RTP Açores', url: 'http://rtp.pt/acores', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'RTP Madeira', url: 'http://rtp.pt/madeira', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SIC', url: 'http://sic.pt/sic', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SIC Notícias', url: 'http://sic.pt/noticias', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SIC Radical', url: 'http://sic.pt/radical', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SIC Mulher', url: 'http://sic.pt/mulher', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SIC K', url: 'http://sic.pt/k', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'TVI', url: 'http://tvi.pt/tvi', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'TVI 24', url: 'http://tvi.pt/24', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'TVI Reality', url: 'http://tvi.pt/reality', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'TVI Ficção', url: 'http://tvi.pt/ficcao', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'CMTV', url: 'http://cmtv.pt/cmtv', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'Porto Canal', url: 'http://portocanal.pt/portocanal', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'Canal 11', url: 'http://canal11.pt/canal11', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SPORT TV 1', url: 'http://sporttv.pt/1', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SPORT TV 2', url: 'http://sporttv.pt/2', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SPORT TV 3', url: 'http://sporttv.pt/3', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SPORT TV 4', url: 'http://sporttv.pt/4', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'SPORT TV 5', url: 'http://sporttv.pt/5', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'ELEVEN SPORTS 1', url: 'http://eleven.pt/1', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'ELEVEN SPORTS 2', url: 'http://eleven.pt/2', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'ELEVEN SPORTS 3', url: 'http://eleven.pt/3', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'ELEVEN SPORTS 4', url: 'http://eleven.pt/4', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'ELEVEN SPORTS 5', url: 'http://eleven.pt/5', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'CNN Portugal', url: 'http://cnn.pt/cnn', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'Eurosport 1', url: 'http://eurosport.pt/1', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    { nome: 'Eurosport 2', url: 'http://eurosport.pt/2', pais: 'PT', grupo: '🇵🇹 Portugal' },
-    
-    // ===== 🇧🇷 BRASIL =====
-    { nome: 'TV Globo HD', url: 'http://globo.com/globo', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Globo News', url: 'http://globo.com/news', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Globo Play', url: 'http://globo.com/play', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'SBT HD', url: 'http://sbt.com/sbt', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Record TV HD', url: 'http://record.com/record', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Band HD', url: 'http://band.com/band', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'CNN Brasil', url: 'http://cnnbrasil.com/cnn', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Rede TV', url: 'http://redetv.com/redetv', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'TV Cultura', url: 'http://cultura.com/cultura', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Cartoon Network BR', url: 'http://cartoon.com/br', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'Discovery Channel BR', url: 'http://discovery.com/br', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    { nome: 'National Geographic BR', url: 'http://natgeo.com/br', pais: 'BR', grupo: '🇧🇷 Brasil' },
-    
-    // ===== 🇫🇷 FRANÇA =====
-    { nome: 'TF1', url: 'http://tf1.fr/tf1', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'France 2', url: 'http://france.tv/2', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'France 3', url: 'http://france.tv/3', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'France 4', url: 'http://france.tv/4', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'France 5', url: 'http://france.tv/5', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'France 24', url: 'http://france24.com/france24', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'M6', url: 'http://m6.fr/m6', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'Canal+', url: 'http://canalplus.fr/canal', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'BFM TV', url: 'http://bfmtv.com/bfm', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'LCI', url: 'http://lci.fr/lci', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'Euronews FR', url: 'http://euronews.com/fr', pais: 'FR', grupo: '🇫🇷 França' },
-    { nome: 'TV5 Monde', url: 'http://tv5monde.com/tv5', pais: 'FR', grupo: '🇫🇷 França' },
-    
-    // ===== 🇩🇪 ALEMANHA =====
-    { nome: 'Das Erste', url: 'http://daserste.de/das', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'ZDF', url: 'http://zdf.de/zdf', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'RTL', url: 'http://rtl.de/rtl', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'ProSieben', url: 'http://prosieben.de/pro', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'SAT.1', url: 'http://sat1.de/sat1', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'VOX', url: 'http://vox.de/vox', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'N-TV', url: 'http://n-tv.de/ntv', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    { nome: 'Deutsche Welle', url: 'http://dw.com/dw', pais: 'DE', grupo: '🇩🇪 Alemanha' },
-    
-    // ===== 🇪🇸 ESPANHA =====
-    { nome: 'La 1', url: 'http://rtve.es/la1', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: 'La 2', url: 'http://rtve.es/la2', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: 'Antena 3', url: 'http://antena3.com/antena3', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: 'Cuatro', url: 'http://cuatro.com/cuatro', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: 'Telecinco', url: 'http://telecinco.com/telecinco', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: 'La Sexta', url: 'http://lasexta.com/lasexta', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: '24h', url: 'http://rtve.es/24h', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    { nome: 'CNN Espanhol', url: 'http://cnn.com/es', pais: 'ES', grupo: '🇪🇸 Espanha' },
-    
-    // ===== 🇬🇧 REINO UNIDO =====
-    { nome: 'BBC One', url: 'http://bbc.co.uk/one', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'BBC Two', url: 'http://bbc.co.uk/two', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'BBC Three', url: 'http://bbc.co.uk/three', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'BBC Four', url: 'http://bbc.co.uk/four', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'BBC News', url: 'http://bbc.co.uk/news', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'ITV', url: 'http://itv.com/itv', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'Channel 4', url: 'http://channel4.com/4', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'Sky News', url: 'http://sky.com/news', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'CNN International', url: 'http://cnn.com/international', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    { nome: 'Euronews EN', url: 'http://euronews.com/en', pais: 'GB', grupo: '🇬🇧 Reino Unido' },
-    
-    // ===== 🇮🇹 ITÁLIA =====
-    { nome: 'RAI 1', url: 'http://rai.it/1', pais: 'IT', grupo: '🇮🇹 Itália' },
-    { nome: 'RAI 2', url: 'http://rai.it/2', pais: 'IT', grupo: '🇮🇹 Itália' },
-    { nome: 'RAI 3', url: 'http://rai.it/3', pais: 'IT', grupo: '🇮🇹 Itália' },
-    { nome: 'RAI News', url: 'http://rai.it/news', pais: 'IT', grupo: '🇮🇹 Itália' },
-    { nome: 'Sky TG24', url: 'http://sky.it/tg24', pais: 'IT', grupo: '🇮🇹 Itália' },
-    { nome: 'Mediaset', url: 'http://mediaset.it/mediaset', pais: 'IT', grupo: '🇮🇹 Itália' },
-    
-    // ===== 🇺🇸 EUA =====
-    { nome: 'ABC', url: 'http://abc.com/abc', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'CBS', url: 'http://cbs.com/cbs', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'NBC', url: 'http://nbc.com/nbc', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'FOX', url: 'http://fox.com/fox', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'CNN', url: 'http://cnn.com/cnn', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'MSNBC', url: 'http://msnbc.com/msnbc', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'HBO', url: 'http://hbo.com/hbo', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'Discovery Channel', url: 'http://discovery.com/discovery', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'National Geographic', url: 'http://natgeo.com/natgeo', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'History Channel', url: 'http://history.com/history', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'Cartoon Network', url: 'http://cartoon.com/cartoon', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'ESPN', url: 'http://espn.com/espn', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'ESPN 2', url: 'http://espn.com/2', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'TNT', url: 'http://tnt.com/tnt', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'TBS', url: 'http://tbs.com/tbs', pais: 'US', grupo: '🇺🇸 EUA' },
-    { nome: 'MTV', url: 'http://mtv.com/mtv', pais: 'US', grupo: '🇺🇸 EUA' },
-    
-    // ===== 🌍 INTERNACIONAIS =====
-    { nome: 'CNN International', url: 'http://cnn.com/international', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'BBC World News', url: 'http://bbc.com/world', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'DW TV', url: 'http://dw.com/dw', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'Euronews', url: 'http://euronews.com/euronews', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'RT', url: 'http://rt.com/rt', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'Al Jazeera', url: 'http://aljazeera.com/aljazeera', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'France 24 EN', url: 'http://france24.com/en', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'TRT World', url: 'http://trt.com/world', pais: 'INT', grupo: '🌍 Internacionais' },
-    { nome: 'CGTN', url: 'http://cgtn.com/cgtn', pais: 'INT', grupo: '🌍 Internacionais' },
-];
+const VECTOR_CONFIG = {
+    url: 'http://play.dnsrot.vip:80',
+    usuario: 'Farleyjm',
+    senha: 'yz6ncyyfadu'
+};
 
 // ============================================
 // FUNÇÃO: OBTER IP LOCAL
@@ -210,6 +34,9 @@ function obterIpLocal() {
     return 'localhost';
 }
 
+// ============================================
+// FUNÇÃO: VALIDAR MAC
+// ============================================
 function validarMac(mac) {
     if (!mac) return true;
     mac = mac.trim().toUpperCase().replace(/\s/g, '');
@@ -221,7 +48,140 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: GERAR PLAYLIST M3U
+// FUNÇÃO: BUSCAR TODOS OS CANAIS DO VECTOR PLAYER
+// ============================================
+async function buscarCanaisVectorPlayer() {
+    try {
+        console.log('📡 [VECTOR PLAYER] A buscar playlist completa...');
+        const urlPlaylist = `${VECTOR_CONFIG.url}/get.php?username=${VECTOR_CONFIG.usuario}&password=${VECTOR_CONFIG.senha}&type=m3u_plus&output=ts`;
+        
+        const response = await fetch(urlPlaylist, {
+            timeout: 30000 // 30 segundos de timeout
+        });
+        
+        if (!response.ok) {
+            console.log(`⚠️ Vector Player indisponível (status: ${response.status})`);
+            return [];
+        }
+        
+        const playlist = await response.text();
+        console.log(`✅ Vector Player: Playlist baixada (${playlist.length} bytes)`);
+        
+        const linhas = playlist.split('\n');
+        const canais = [];
+        let canalAtual = null;
+        let count = 0;
+        let erros = 0;
+        
+        for (const linha of linhas) {
+            try {
+                const linhaLimpa = linha.trim();
+                if (linhaLimpa.startsWith('#EXTINF:')) {
+                    // Extrair nome do canal
+                    const matchNome = linhaLimpa.match(/,([^,]+)$/);
+                    const nome = matchNome ? matchNome[1] : 'Canal';
+                    
+                    // Extrair logo
+                    const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
+                    const logo = matchLogo ? matchLogo[1] : '';
+                    
+                    // Extrair grupo
+                    const matchGrupo = linhaLimpa.match(/group-title="([^"]+)"/);
+                    const grupo = matchGrupo ? matchGrupo[1] : 'Vector Player';
+                    
+                    canalAtual = { nome, url: '', logo, grupo };
+                } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                    // Validar URL
+                    if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
+                        canalAtual.url = linhaLimpa;
+                        canais.push(canalAtual);
+                        count++;
+                    } else {
+                        erros++;
+                    }
+                    canalAtual = null;
+                }
+            } catch (e) {
+                erros++;
+                canalAtual = null;
+            }
+        }
+        
+        console.log(`✅ Vector Player: ${count} canais válidos encontrados`);
+        if (erros > 0) console.log(`⚠️ ${erros} linhas ignoradas`);
+        return canais;
+    } catch (error) {
+        console.error('❌ Erro ao buscar Vector Player:', error.message);
+        return [];
+    }
+}
+
+// ============================================
+// FUNÇÃO: BUSCAR CANAIS DO TV GARDEN (COMPLEMENTO)
+// ============================================
+async function buscarCanaisTVGarden() {
+    try {
+        console.log('📡 [TV GARDEN] A buscar canais complementares...');
+        const url = 'https://iptv-org.github.io/iptv/index.m3u';
+        const response = await fetch(url);
+        if (!response.ok) {
+            console.log('⚠️ TV Garden indisponível');
+            return [];
+        }
+        const playlist = await response.text();
+        const linhas = playlist.split('\n');
+        const canais = [];
+        let canalAtual = null;
+        let count = 0;
+
+        const paisesInteresse = ['AO', 'MZ', 'PT', 'BR', 'FR', 'ES', 'GB', 'US', 'DE', 'IT'];
+        const categoriasInteresse = ['movies', 'series', 'sports', 'news', 'music', 'kids'];
+
+        for (const linha of linhas) {
+            const linhaLimpa = linha.trim();
+            if (linhaLimpa.startsWith('#EXTINF:')) {
+                const matchNome = linhaLimpa.match(/,([^,]+)$/);
+                const nome = matchNome ? matchNome[1] : 'Canal';
+                const matchGrupo = linhaLimpa.match(/group-title="([^"]+)"/);
+                const grupo = matchGrupo ? matchGrupo[1] : '';
+                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
+                const logo = matchLogo ? matchLogo[1] : '';
+                
+                // Verificar se é de interesse (país ou categoria)
+                let isInteresse = false;
+                if (grupo) {
+                    const grupoLower = grupo.toLowerCase();
+                    for (const pais of paisesInteresse) {
+                        if (grupoLower.includes(pais.toLowerCase())) isInteresse = true;
+                    }
+                    for (const cat of categoriasInteresse) {
+                        if (grupoLower.includes(cat)) isInteresse = true;
+                    }
+                }
+                if (isInteresse) {
+                    canalAtual = { nome, url: '', logo, grupo };
+                } else {
+                    canalAtual = null;
+                }
+            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
+                    canalAtual.url = linhaLimpa;
+                    canais.push(canalAtual);
+                    count++;
+                }
+                canalAtual = null;
+            }
+        }
+        console.log(`✅ TV Garden: ${count} canais complementares`);
+        return canais;
+    } catch (error) {
+        console.error('❌ Erro no TV Garden:', error.message);
+        return [];
+    }
+}
+
+// ============================================
+// FUNÇÃO: GERAR PLAYLIST M3U (ORGANIZADA)
 // ============================================
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
@@ -229,42 +189,96 @@ async function gerarPlaylistM3U(usuario) {
 
     console.log(`📡 Gerando playlist para ${usuario.username}...`);
 
-    let playlist = '#EXTM3U\n';
-    playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
-    playlist += `#EXTINF:-1,Plano: ${usuario.plano.toUpperCase()} | Expira em: ${diasRestantes} dias\n\n`;
+    // 1. Buscar Vector Player (principal)
+    let canais = await buscarCanaisVectorPlayer();
+    console.log(`📊 Vector Player: ${canais.length} canais`);
 
-    // Agrupar canais por país
+    // 2. Se Vector Player tiver menos de 100 canais, buscar TV Garden
+    if (canais.length < 100) {
+        console.log('⚠️ Vector Player com poucos canais, buscando complemento...');
+        const tvGarden = await buscarCanaisTVGarden();
+        canais = [...canais, ...tvGarden];
+        console.log(`📊 Total: ${canais.length} canais`);
+    }
+
+    if (canais.length === 0) {
+        console.log('⚠️ Nenhum canal encontrado');
+        return '#EXTM3U\n#EXTINF:-1,⚠️ Nenhum canal disponível\n';
+    }
+
+    // Limitar a 5000 canais para performance
+    const canaisSelecionados = canais.slice(0, 5000);
+
+    let playlist = '#EXTM3U\n';
+    playlist += `#PLAYLIST: IPTV Manager Pro\n`;
+    playlist += `#PLAYLIST: ${usuario.username} - ${usuario.plano.toUpperCase()}\n`;
+    playlist += `#EXTINF:-1,📅 Expira em: ${diasRestantes} dias\n\n`;
+
+    // Organizar por grupo (país/categoria)
     const grupos = {};
-    CANAIS_FIXOS.forEach(canal => {
-        const grupo = canal.grupo || '📺 Outros';
+    canaisSelecionados.forEach(canal => {
+        let grupo = canal.grupo || '📺 Outros';
+        if (grupo.includes('Vector Player')) grupo = '📡 Vector Player';
+        if (grupo.includes('TV Garden')) grupo = '🌍 TV Garden';
+        if (grupo.toLowerCase().includes('ao') || grupo.toLowerCase().includes('angola')) grupo = '🇦🇴 Angola';
+        if (grupo.toLowerCase().includes('mz') || grupo.toLowerCase().includes('moçambique')) grupo = '🇲🇿 Moçambique';
+        if (grupo.toLowerCase().includes('pt') || grupo.toLowerCase().includes('portugal')) grupo = '🇵🇹 Portugal';
+        if (grupo.toLowerCase().includes('br') || grupo.toLowerCase().includes('brasil')) grupo = '🇧🇷 Brasil';
+        if (grupo.toLowerCase().includes('fr') || grupo.toLowerCase().includes('frança')) grupo = '🇫🇷 França';
+        if (grupo.toLowerCase().includes('es') || grupo.toLowerCase().includes('espanha')) grupo = '🇪🇸 Espanha';
+        if (grupo.toLowerCase().includes('gb') || grupo.toLowerCase().includes('uk')) grupo = '🇬🇧 Reino Unido';
+        if (grupo.toLowerCase().includes('us') || grupo.toLowerCase().includes('eua')) grupo = '🇺🇸 EUA';
+        if (grupo.toLowerCase().includes('de') || grupo.toLowerCase().includes('alemanha')) grupo = '🇩🇪 Alemanha';
+        if (grupo.toLowerCase().includes('it') || grupo.toLowerCase().includes('italia')) grupo = '🇮🇹 Itália';
+        if (grupo.toLowerCase().includes('movie') || grupo.toLowerCase().includes('film')) grupo = '🎬 Filmes';
+        if (grupo.toLowerCase().includes('series') || grupo.toLowerCase().includes('serie')) grupo = '📺 Séries';
+        if (grupo.toLowerCase().includes('sport') || grupo.toLowerCase().includes('esporte')) grupo = '⚽ Esportes';
+        if (grupo.toLowerCase().includes('news') || grupo.toLowerCase().includes('noticia')) grupo = '📰 Notícias';
+        if (grupo.toLowerCase().includes('music') || grupo.toLowerCase().includes('musica')) grupo = '🎵 Música';
+        if (grupo.toLowerCase().includes('kids') || grupo.toLowerCase().includes('infantil')) grupo = '🧒 Infantil';
+        if (grupo.toLowerCase().includes('entertainment') || grupo.toLowerCase().includes('entretenimento')) grupo = '🎭 Entretenimento';
+        
         if (!grupos[grupo]) grupos[grupo] = [];
         grupos[grupo].push(canal);
     });
 
-    // Ordenar grupos (países)
-    const ordemGrupos = ['🇦🇴 Angola', '🇲🇿 Moçambique', '🇵🇹 Portugal', '🇧🇷 Brasil', '🇫🇷 França', '🇩🇪 Alemanha', '🇪🇸 Espanha', '🇬🇧 Reino Unido', '🇮🇹 Itália', '🇺🇸 EUA', '🌍 Internacionais', '📺 Outros'];
-    const gruposOrdenados = ordemGrupos.filter(g => grupos[g]);
-    
-    // Adicionar grupos não listados no final
-    for (const grupo of Object.keys(grupos).sort()) {
-        if (!ordemGrupos.includes(grupo)) {
+    // Ordenar grupos
+    const ordemGrupos = [
+        '🇦🇴 Angola', '🇲🇿 Moçambique', '🇵🇹 Portugal', '🇧🇷 Brasil',
+        '🇫🇷 França', '🇪🇸 Espanha', '🇬🇧 Reino Unido', '🇺🇸 EUA',
+        '🇩🇪 Alemanha', '🇮🇹 Itália',
+        '🎬 Filmes', '📺 Séries', '⚽ Esportes', '📰 Notícias',
+        '🎵 Música', '🧒 Infantil', '🎭 Entretenimento',
+        '📡 Vector Player', '🌍 TV Garden', '📺 Outros'
+    ];
+
+    const gruposOrdenados = [];
+    for (const grupo of ordemGrupos) {
+        if (grupos[grupo]) {
             gruposOrdenados.push(grupo);
+            delete grupos[grupo];
         }
+    }
+    for (const grupo of Object.keys(grupos).sort()) {
+        gruposOrdenados.push(grupo);
     }
 
     for (const grupo of gruposOrdenados) {
         const canaisDoGrupo = grupos[grupo] || [];
         playlist += `#EXTINF:-1 tvg-logo="",📁 ${grupo}\n`;
         playlist += `#EXTGRP:${grupo}\n`;
-
+        
         canaisDoGrupo.forEach(canal => {
-            playlist += `#EXTINF:-1 tvg-logo="",${canal.nome}\n`;
-            playlist += `${canal.url}\n`;
+            const logo = canal.logo || '';
+            const nome = canal.nome || 'Canal';
+            const urlCanal = canal.url || '#';
+            playlist += `#EXTINF:-1 tvg-logo="${logo}",${nome}\n`;
+            playlist += `${urlCanal}\n`;
         });
         playlist += '\n';
     }
 
-    console.log(`✅ Playlist gerada com ${CANAIS_FIXOS.length} canais`);
+    console.log(`✅ Playlist gerada com ${canaisSelecionados.length} canais`);
     return playlist;
 }
 
@@ -494,4 +508,3 @@ server.listen(PORT, () => {
 setInterval(() => {
     try { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); } catch (err) { }
 }, 30000);
-
