@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - PRIORIZANDO VECTOR PLAYER
+// IPTV MANAGER PRO - MÚLTIPLOS SERVIDORES VECTOR
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -11,13 +11,38 @@ const PORT = process.env.PORT || 8888;
 let usuarios = [];
 
 // ============================================
-// SERVIDOR VECTOR PLAYER (PRINCIPAL)
+// SERVIDORES VECTOR PLAYER (ESTÁVEIS)
 // ============================================
-const VECTOR_CONFIG = {
-    url: 'http://play.dnsrot.vip:80',
-    usuario: 'Farleyjm',
-    senha: 'yz6ncyyfadu'
-};
+const SERVERS_VECTOR = [
+    {
+        id: 1,
+        url: 'http://stv.sstv.cx:80',
+        usuario: 'Farleyjm',
+        senha: 'yz6ncyyfadu',
+        nome: 'SSTV Server'
+    },
+    {
+        id: 2,
+        url: 'http://stv.cx:80',
+        usuario: 'Farleyjm',
+        senha: 'yz6ncyyfadu',
+        nome: 'STV Server'
+    },
+    {
+        id: 3,
+        url: 'http://ssapp.ch:80',
+        usuario: 'Farleyjm',
+        senha: 'yz6ncyyfadu',
+        nome: 'SSApp Server'
+    },
+    {
+        id: 4,
+        url: 'http://play.dnsrot.vip:80',
+        usuario: 'Farleyjm',
+        senha: 'yz6ncyyfadu',
+        nome: 'DNSRot Server'
+    }
+];
 
 // ============================================
 // FUNÇÃO: OBTER IP LOCAL
@@ -48,72 +73,76 @@ function validarMac(mac) {
 }
 
 // ============================================
-// FUNÇÃO: BUSCAR TODOS OS CANAIS DO VECTOR PLAYER
+// FUNÇÃO: BUSCAR CANAIS DE UM SERVIDOR VECTOR
 // ============================================
-async function buscarCanaisVectorPlayer() {
+async function buscarCanaisServer(server) {
     try {
-        console.log('📡 [VECTOR PLAYER] A buscar playlist completa...');
-        const urlPlaylist = `${VECTOR_CONFIG.url}/get.php?username=${VECTOR_CONFIG.usuario}&password=${VECTOR_CONFIG.senha}&type=m3u_plus&output=ts`;
+        console.log(`📡 [${server.nome}] A buscar canais...`);
+        const urlPlaylist = `${server.url}/get.php?username=${server.usuario}&password=${server.senha}&type=m3u_plus&output=ts`;
         
-        const response = await fetch(urlPlaylist, {
-            timeout: 30000 // 30 segundos de timeout
-        });
-        
+        const response = await fetch(urlPlaylist, { timeout: 15000 });
         if (!response.ok) {
-            console.log(`⚠️ Vector Player indisponível (status: ${response.status})`);
+            console.log(`⚠️ ${server.nome} indisponível (status: ${response.status})`);
             return [];
         }
         
         const playlist = await response.text();
-        console.log(`✅ Vector Player: Playlist baixada (${playlist.length} bytes)`);
+        console.log(`✅ ${server.nome}: Playlist baixada (${playlist.length} bytes)`);
         
         const linhas = playlist.split('\n');
         const canais = [];
         let canalAtual = null;
         let count = 0;
-        let erros = 0;
         
         for (const linha of linhas) {
-            try {
-                const linhaLimpa = linha.trim();
-                if (linhaLimpa.startsWith('#EXTINF:')) {
-                    // Extrair nome do canal
-                    const matchNome = linhaLimpa.match(/,([^,]+)$/);
-                    const nome = matchNome ? matchNome[1] : 'Canal';
-                    
-                    // Extrair logo
-                    const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
-                    const logo = matchLogo ? matchLogo[1] : '';
-                    
-                    // Extrair grupo
-                    const matchGrupo = linhaLimpa.match(/group-title="([^"]+)"/);
-                    const grupo = matchGrupo ? matchGrupo[1] : 'Vector Player';
-                    
-                    canalAtual = { nome, url: '', logo, grupo };
-                } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
-                    // Validar URL
-                    if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
-                        canalAtual.url = linhaLimpa;
-                        canais.push(canalAtual);
-                        count++;
-                    } else {
-                        erros++;
-                    }
-                    canalAtual = null;
+            const linhaLimpa = linha.trim();
+            if (linhaLimpa.startsWith('#EXTINF:')) {
+                const matchNome = linhaLimpa.match(/,([^,]+)$/);
+                const nome = matchNome ? matchNome[1] : 'Canal';
+                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
+                const logo = matchLogo ? matchLogo[1] : '';
+                canalAtual = { nome, url: '', logo, grupo: server.nome };
+            } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
+                if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
+                    canalAtual.url = linhaLimpa;
+                    canais.push(canalAtual);
+                    count++;
                 }
-            } catch (e) {
-                erros++;
                 canalAtual = null;
             }
         }
-        
-        console.log(`✅ Vector Player: ${count} canais válidos encontrados`);
-        if (erros > 0) console.log(`⚠️ ${erros} linhas ignoradas`);
+        console.log(`✅ ${server.nome}: ${count} canais encontrados`);
         return canais;
     } catch (error) {
-        console.error('❌ Erro ao buscar Vector Player:', error.message);
+        console.error(`❌ Erro no ${server.nome}:`, error.message);
         return [];
     }
+}
+
+// ============================================
+// FUNÇÃO: BUSCAR TODOS OS SERVIDORES VECTOR
+// ============================================
+async function buscarTodosServidoresVector() {
+    const todosCanais = [];
+    const vistos = new Set();
+    
+    for (const server of SERVERS_VECTOR) {
+        const canais = await buscarCanaisServer(server);
+        let adicionados = 0;
+        
+        for (const canal of canais) {
+            const key = canal.nome + '|' + canal.url;
+            if (!vistos.has(key)) {
+                vistos.add(key);
+                todosCanais.push(canal);
+                adicionados++;
+            }
+        }
+        console.log(`📊 ${server.nome}: ${adicionados} canais únicos adicionados`);
+    }
+    
+    console.log(`✅ Total: ${todosCanais.length} canais únicos de todos os servidores`);
+    return todosCanais;
 }
 
 // ============================================
@@ -147,7 +176,6 @@ async function buscarCanaisTVGarden() {
                 const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
                 const logo = matchLogo ? matchLogo[1] : '';
                 
-                // Verificar se é de interesse (país ou categoria)
                 let isInteresse = false;
                 if (grupo) {
                     const grupoLower = grupo.toLowerCase();
@@ -189,13 +217,13 @@ async function gerarPlaylistM3U(usuario) {
 
     console.log(`📡 Gerando playlist para ${usuario.username}...`);
 
-    // 1. Buscar Vector Player (principal)
-    let canais = await buscarCanaisVectorPlayer();
-    console.log(`📊 Vector Player: ${canais.length} canais`);
+    // 1. Buscar todos os servidores Vector
+    let canais = await buscarTodosServidoresVector();
+    console.log(`📊 Vector: ${canais.length} canais`);
 
-    // 2. Se Vector Player tiver menos de 100 canais, buscar TV Garden
+    // 2. Se tiver poucos canais, buscar TV Garden
     if (canais.length < 100) {
-        console.log('⚠️ Vector Player com poucos canais, buscando complemento...');
+        console.log('⚠️ Poucos canais Vector, buscando complemento...');
         const tvGarden = await buscarCanaisTVGarden();
         canais = [...canais, ...tvGarden];
         console.log(`📊 Total: ${canais.length} canais`);
@@ -206,7 +234,7 @@ async function gerarPlaylistM3U(usuario) {
         return '#EXTM3U\n#EXTINF:-1,⚠️ Nenhum canal disponível\n';
     }
 
-    // Limitar a 5000 canais para performance
+    // Limitar a 5000 canais
     const canaisSelecionados = canais.slice(0, 5000);
 
     let playlist = '#EXTM3U\n';
@@ -214,29 +242,15 @@ async function gerarPlaylistM3U(usuario) {
     playlist += `#PLAYLIST: ${usuario.username} - ${usuario.plano.toUpperCase()}\n`;
     playlist += `#EXTINF:-1,📅 Expira em: ${diasRestantes} dias\n\n`;
 
-    // Organizar por grupo (país/categoria)
+    // Organizar por servidor de origem
     const grupos = {};
     canaisSelecionados.forEach(canal => {
-        let grupo = canal.grupo || '📺 Outros';
-        if (grupo.includes('Vector Player')) grupo = '📡 Vector Player';
+        let grupo = canal.grupo || '📡 Vector Player';
+        if (grupo.includes('SSTV')) grupo = '📡 SSTV Server';
+        if (grupo.includes('STV')) grupo = '📡 STV Server';
+        if (grupo.includes('SSApp')) grupo = '📡 SSApp Server';
+        if (grupo.includes('DNSRot')) grupo = '📡 DNSRot Server';
         if (grupo.includes('TV Garden')) grupo = '🌍 TV Garden';
-        if (grupo.toLowerCase().includes('ao') || grupo.toLowerCase().includes('angola')) grupo = '🇦🇴 Angola';
-        if (grupo.toLowerCase().includes('mz') || grupo.toLowerCase().includes('moçambique')) grupo = '🇲🇿 Moçambique';
-        if (grupo.toLowerCase().includes('pt') || grupo.toLowerCase().includes('portugal')) grupo = '🇵🇹 Portugal';
-        if (grupo.toLowerCase().includes('br') || grupo.toLowerCase().includes('brasil')) grupo = '🇧🇷 Brasil';
-        if (grupo.toLowerCase().includes('fr') || grupo.toLowerCase().includes('frança')) grupo = '🇫🇷 França';
-        if (grupo.toLowerCase().includes('es') || grupo.toLowerCase().includes('espanha')) grupo = '🇪🇸 Espanha';
-        if (grupo.toLowerCase().includes('gb') || grupo.toLowerCase().includes('uk')) grupo = '🇬🇧 Reino Unido';
-        if (grupo.toLowerCase().includes('us') || grupo.toLowerCase().includes('eua')) grupo = '🇺🇸 EUA';
-        if (grupo.toLowerCase().includes('de') || grupo.toLowerCase().includes('alemanha')) grupo = '🇩🇪 Alemanha';
-        if (grupo.toLowerCase().includes('it') || grupo.toLowerCase().includes('italia')) grupo = '🇮🇹 Itália';
-        if (grupo.toLowerCase().includes('movie') || grupo.toLowerCase().includes('film')) grupo = '🎬 Filmes';
-        if (grupo.toLowerCase().includes('series') || grupo.toLowerCase().includes('serie')) grupo = '📺 Séries';
-        if (grupo.toLowerCase().includes('sport') || grupo.toLowerCase().includes('esporte')) grupo = '⚽ Esportes';
-        if (grupo.toLowerCase().includes('news') || grupo.toLowerCase().includes('noticia')) grupo = '📰 Notícias';
-        if (grupo.toLowerCase().includes('music') || grupo.toLowerCase().includes('musica')) grupo = '🎵 Música';
-        if (grupo.toLowerCase().includes('kids') || grupo.toLowerCase().includes('infantil')) grupo = '🧒 Infantil';
-        if (grupo.toLowerCase().includes('entertainment') || grupo.toLowerCase().includes('entretenimento')) grupo = '🎭 Entretenimento';
         
         if (!grupos[grupo]) grupos[grupo] = [];
         grupos[grupo].push(canal);
@@ -244,12 +258,12 @@ async function gerarPlaylistM3U(usuario) {
 
     // Ordenar grupos
     const ordemGrupos = [
-        '🇦🇴 Angola', '🇲🇿 Moçambique', '🇵🇹 Portugal', '🇧🇷 Brasil',
-        '🇫🇷 França', '🇪🇸 Espanha', '🇬🇧 Reino Unido', '🇺🇸 EUA',
-        '🇩🇪 Alemanha', '🇮🇹 Itália',
-        '🎬 Filmes', '📺 Séries', '⚽ Esportes', '📰 Notícias',
-        '🎵 Música', '🧒 Infantil', '🎭 Entretenimento',
-        '📡 Vector Player', '🌍 TV Garden', '📺 Outros'
+        '📡 SSTV Server',
+        '📡 STV Server',
+        '📡 SSApp Server',
+        '📡 DNSRot Server',
+        '🌍 TV Garden',
+        '📺 Outros'
     ];
 
     const gruposOrdenados = [];
