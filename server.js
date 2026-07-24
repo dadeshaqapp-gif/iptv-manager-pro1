@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM LOGIN E DASHBOARD
+// IPTV MANAGER PRO - LOGIN PROFISSIONAL
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -8,10 +8,6 @@ const os = require('os');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 8888;
-
-// ============================================
-// CONFIGURAÇÃO DE LOGIN
-// ============================================
 const ADMIN_USER = 'admin';
 const ADMIN_PASS = 'iptv2024';
 const sessoes = {};
@@ -38,13 +34,6 @@ function validarSessao(token) {
     return true;
 }
 
-function destruirSessao(token) {
-    if (token && sessoes[token]) delete sessoes[token];
-}
-
-// ============================================
-// FUNÇÃO: SERVE ARQUIVOS ESTÁTICOS
-// ============================================
 function serveStatic(filePath, res) {
     const extname = path.extname(filePath);
     let contentType = 'text/html';
@@ -65,7 +54,7 @@ function serveStatic(filePath, res) {
 }
 
 // ============================================
-// SERVIDORES E CANAIS
+// CANAIS E SERVIDORES
 // ============================================
 const SERVERS = [
     { id: 1, url: 'http://stv.sstv.cx:80', usuario: 'Farleyjm', senha: 'yz6ncyyfadu', nome: 'SSTV' },
@@ -208,7 +197,7 @@ async function gerarPlaylistM3U(usuario) {
 // ============================================
 // SERVIDOR HTTP
 // ============================================
-const server = http.createServer(async (req, res) => {
+const server = http.createServer((req, res) => {
     const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = reqUrl.pathname;
 
@@ -223,7 +212,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ============================================
-    // ROTA: /api/login
+    // ROTA: /api/login (POST)
     // ============================================
     if (pathname === '/api/login' && req.method === 'POST') {
         let body = '';
@@ -234,7 +223,7 @@ const server = http.createServer(async (req, res) => {
                 if (dados.username === ADMIN_USER && dados.password === ADMIN_PASS) {
                     const token = criarSessao();
                     res.writeHead(200, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ success: true, token, message: 'Login realizado!' }));
+                    res.end(JSON.stringify({ success: true, token }));
                 } else {
                     res.writeHead(401, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: false, error: 'Credenciais inválidas' }));
@@ -248,18 +237,22 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ============================================
-    // ROTA: /api/logout
+    // ROTA: /api/usuarios (GET) - PROTEGIDA
     // ============================================
-    if (pathname === '/api/logout' && req.method === 'POST') {
+    if (pathname === '/api/usuarios' && req.method === 'GET') {
         const token = req.headers.authorization?.replace('Bearer ', '');
-        destruirSessao(token);
+        if (!token || !validarSessao(token)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            return;
+        }
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, message: 'Logout realizado' }));
+        res.end(JSON.stringify({ success: true, data: usuarios }));
         return;
     }
 
     // ============================================
-    // ROTA: /dashboard (redirecionar para /index.html)
+    // ROTA: /dashboard (GET) - PROTEGIDA
     // ============================================
     if (pathname === '/dashboard') {
         const token = req.headers.authorization?.replace('Bearer ', '');
@@ -268,19 +261,19 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
             return;
         }
-        // Servir o index.html da pasta public
+        // Servir o index.html
         let filePath = './public/index.html';
         serveStatic(filePath, res);
         return;
     }
 
     // ============================================
-    // ROTA: / (raiz) - servir login.html
+    // ROTA: / (RAIZ) - Servir login.html
     // ============================================
     if (pathname === '/') {
         let filePath = './public/login.html';
-        // Verificar se login.html existe, senão criar
         if (!fs.existsSync(filePath)) {
+            // Criar login.html com JavaScript que envia o token no header
             const loginHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -334,7 +327,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         const data = await response.json();
         if (data.success) {
             localStorage.setItem('token', data.token);
-            // Redirecionar para /dashboard com token no header
+            // Redirecionar para /dashboard com o token no header
             window.location.href = '/dashboard';
         } else {
             errorDiv.textContent = data.error || 'Credenciais inválidas';
@@ -345,46 +338,86 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         errorDiv.style.display = 'block';
     }
 });
+
+// Interceptar todas as requisições fetch para adicionar o token
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    const token = localStorage.getItem('token');
+    if (token) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = 'Bearer ' + token;
+    }
+    return originalFetch.call(this, url, options);
+};
 </script>
 </body>
 </html>`;
             fs.writeFileSync('./public/login.html', loginHtml);
+            filePath = './public/login.html';
         }
         serveStatic(filePath, res);
         return;
     }
 
     // ============================================
-    // ROTAS PROTEGIDAS: /index.html, /api/usuarios
+    // ARQUIVOS ESTÁTICOS
     // ============================================
-    if (pathname === '/index.html' || pathname === '/api/usuarios') {
+    if (pathname.startsWith('/assets/') || pathname.startsWith('/css/') || pathname.startsWith('/js/')) {
+        let filePath = '.' + pathname;
+        if (!filePath.startsWith('./public')) filePath = './public' + pathname;
+        try {
+            if (fs.existsSync(filePath)) {
+                serveStatic(filePath, res);
+                return;
+            }
+        } catch {}
+    }
+
+    // ============================================
+    // ROTA: /index.html (PROTEGIDA)
+    // ============================================
+    if (pathname === '/index.html') {
         const token = req.headers.authorization?.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
-            if (pathname === '/api/usuarios') {
-                res.writeHead(401, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
-            } else {
-                // Para index.html, redirecionar para login
-                res.writeHead(302, { 'Location': '/' });
-                res.end();
-            }
+            res.writeHead(302, { 'Location': '/' });
+            res.end();
             return;
         }
-        
-        if (pathname === '/api/usuarios' && req.method === 'GET') {
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: true, data: usuarios }));
-            return;
-        }
-        
-        // Servir index.html
         let filePath = './public/index.html';
         serveStatic(filePath, res);
         return;
     }
 
     // ============================================
-    // ROTA: /player_api.php (Xtream Codes)
+    // ROTA: /playlist.m3u e /get.php (PÚBLICAS)
+    // ============================================
+    if (pathname === '/playlist.m3u' || pathname === '/get.php') {
+        const username = reqUrl.searchParams.get('username');
+        const password = reqUrl.searchParams.get('password');
+        const mac = reqUrl.searchParams.get('mac');
+
+        let user = null;
+        if (mac) user = validarPorMac(mac);
+        else if (username && password) user = validarUsuario(username, password);
+
+        if (!user) {
+            res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Erro: Credenciais inválidas ou assinatura expirada');
+            return;
+        }
+
+        gerarPlaylistM3U(user).then(playlist => {
+            res.writeHead(200, {
+                'Content-Type': 'audio/x-mpegurl',
+                'Content-Disposition': 'attachment; filename="playlist.m3u"'
+            });
+            res.end(playlist);
+        });
+        return;
+    }
+
+    // ============================================
+    // ROTA: /player_api.php (PÚBLICA - Xtream Codes)
     // ============================================
     if (pathname === '/player_api.php') {
         const username = reqUrl.searchParams.get('username');
@@ -464,50 +497,18 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
     }
 
     // ============================================
-    // ROTA: /playlist.m3u e /get.php
+    // 404 - ROTA NÃO ENCONTRADA
     // ============================================
-    if (pathname === '/playlist.m3u' || pathname === '/get.php') {
-        const username = reqUrl.searchParams.get('username');
-        const password = reqUrl.searchParams.get('password');
-        const mac = reqUrl.searchParams.get('mac');
-
-        let user = null;
-        if (mac) user = validarPorMac(mac);
-        else if (username && password) user = validarUsuario(username, password);
-
-        if (!user) {
-            res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('Erro: Credenciais inválidas ou assinatura expirada');
-            return;
-        }
-
-        const playlist = await gerarPlaylistM3U(user);
-        res.writeHead(200, {
-            'Content-Type': 'audio/x-mpegurl',
-            'Content-Disposition': 'attachment; filename="playlist.m3u"'
-        });
-        res.end(playlist);
-        return;
-    }
-
-    // ============================================
-    // ARQUIVOS ESTÁTICOS (css, js, etc.)
-    // ============================================
-    let filePath = '.' + pathname;
-    if (!filePath.startsWith('./public')) filePath = './public' + pathname;
-    
-    try {
-        await fs.promises.access(filePath);
-        serveStatic(filePath, res);
-    } catch {
-        res.writeHead(404);
-        res.end('Arquivo não encontrado');
-    }
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Rota não encontrada');
 });
 
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
 server.listen(PORT, async () => {
     console.log('==================================================');
-    console.log('📺 IPTV Manager Pro - Servidor com Login!');
+    console.log('📺 IPTV Manager Pro - Servidor com Login Profissional!');
     console.log('🌐 Porta: ' + PORT);
     console.log('🔑 Admin: admin / iptv2024');
     console.log('==================================================');
