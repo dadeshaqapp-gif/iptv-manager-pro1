@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - AUTENTICAÇÃO POR SESSÃO
+// IPTV MANAGER PRO - COM WHATSAPP
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -13,25 +13,26 @@ const ADMIN_PASS = 'iptv2024';
 const sessoes = {};
 const TEMPO_SESSAO = 24 * 60 * 60 * 1000;
 
-function gerarToken() {
-    return crypto.randomBytes(32).toString('hex');
+function gerarToken() { return crypto.randomBytes(32).toString('hex'); }
+function criarSessao() { const token = gerarToken(); sessoes[token] = { criado_em: Date.now(), valido: true }; return token; }
+function validarSessao(token) { if (!token) return false; const sessao = sessoes[token]; if (!sessao || !sessao.valido) return false; return true; }
+
+function gerarSenhaAleatoria(tamanho = 10) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
+    let senha = '';
+    for (let i = 0; i < tamanho; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
+    return senha;
 }
 
-function criarSessao() {
-    const token = gerarToken();
-    sessoes[token] = { criado_em: Date.now(), valido: true };
-    return token;
-}
-
-function validarSessao(token) {
-    if (!token) return false;
-    const sessao = sessoes[token];
-    if (!sessao || !sessao.valido) return false;
-    if (Date.now() - sessao.criado_em > TEMPO_SESSAO) {
-        delete sessoes[token];
-        return false;
-    }
-    return true;
+function calcularExpiracao(plano) {
+    const agora = new Date();
+    const duracaoMap = {
+        teste: 2 * 60 * 60 * 1000,
+        mensal: 30 * 24 * 60 * 60 * 1000,
+        trimestral: 90 * 24 * 60 * 60 * 1000,
+        anual: 365 * 24 * 60 * 60 * 1000
+    };
+    return new Date(agora.getTime() + (duracaoMap[plano] || duracaoMap.mensal));
 }
 
 function serveStatic(filePath, res) {
@@ -41,72 +42,148 @@ function serveStatic(filePath, res) {
     if (extname === '.js') contentType = 'application/javascript';
     if (extname === '.png') contentType = 'image/png';
     if (extname === '.jpg' || extname === '.jpeg') contentType = 'image/jpeg';
-
     fs.readFile(filePath, (error, content) => {
-        if (error) {
-            res.writeHead(404);
-            res.end('Arquivo não encontrado');
-        } else {
-            res.writeHead(200, { 'Content-Type': contentType });
-            res.end(content);
-        }
+        if (error) { res.writeHead(404); res.end('Arquivo não encontrado'); }
+        else { res.writeHead(200, { 'Content-Type': contentType }); res.end(content); }
     });
 }
 
 // ============================================
-// CANAIS E USUÁRIOS (SIMPLIFICADO)
+// WHATSAPP NOTIFICATIONS
 // ============================================
+const CONTATO_PROVEDOR = '879641990';
+
+function formatarNumeroWhatsApp(numero) {
+    // Remove caracteres não numéricos
+    const limpo = numero.replace(/\D/g, '');
+    // Adiciona código do país se não tiver (258 = Moçambique)
+    if (limpo.startsWith('8') && limpo.length === 9) {
+        return `258${limpo}`;
+    }
+    return limpo;
+}
+
+function gerarMensagemRenovacao(usuario, plano, novaData) {
+    const dataFormatada = new Date(novaData).toLocaleDateString('pt-PT', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    const emoji = plano === 'teste' ? '🎯' : plano === 'mensal' ? '📅' : plano === 'trimestral' ? '📆' : '📅';
+    const planoTexto = plano.toUpperCase();
+    return `🔔 ${emoji} Sua assinatura IPTV foi renovada!
+
+Olá ${usuario.username}, sua assinatura ${planoTexto} foi atualizada com sucesso!
+
+📅 Nova data de expiração: ${dataFormatada}
+📱 Para renovar: Contacte o Provedor ${CONTATO_PROVEDOR}
+
+Aproveite os seus canais! 📺`;
+}
+
+async function enviarWhatsApp(numero, mensagem) {
+    const numeroFormatado = formatarNumeroWhatsApp(numero);
+    console.log(`📱 Enviando WhatsApp para ${numeroFormatado}...`);
+    console.log(`📝 Mensagem: ${mensagem}`);
+
+    // TODO: Integrar com WhatsApp Cloud API
+    // Por enquanto, apenas log
+    return { success: true, message: 'Simulação de envio' };
+}
+
+async function notificarRenovacao(usuario, plano, novaData) {
+    if (!usuario.contato) {
+        console.log(`⚠️ Usuário ${usuario.username} não tem contato para notificação`);
+        return;
+    }
+    const mensagem = gerarMensagemRenovacao(usuario, plano, novaData);
+    await enviarWhatsApp(usuario.contato, mensagem);
+}
+
+// ============================================
+// DADOS: USUÁRIOS E CANAIS
+// ============================================
+let usuarios = [];
+try {
+    const data = fs.readFileSync('usuarios.json', 'utf8');
+    usuarios = JSON.parse(data);
+    console.log(`✅ ${usuarios.length} usuários carregados`);
+} catch {
+    usuarios = [];
+    fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
+}
+
 const CANAIS_FALLBACK = [
     { nome: 'ZAP Novelas', url: 'http://zap.ao/novelas', origem: 'ZAP' },
+    { nome: 'ZAP Viva', url: 'http://zap.ao/viva', origem: 'ZAP' },
+    { nome: 'ZAP Cinema', url: 'http://zap.ao/cinema', origem: 'ZAP' },
     { nome: 'RTP 1', url: 'http://rtp.pt/rtp1', origem: 'Portugal' },
     { nome: 'SIC', url: 'http://sic.pt/sic', origem: 'Portugal' },
     { nome: 'TVI', url: 'http://tvi.pt/tvi', origem: 'Portugal' },
     { nome: 'CNN Internacional', url: 'http://cnn.com/international', origem: 'Internacional' },
+    { nome: 'BBC World News', url: 'http://bbc.com/world', origem: 'Internacional' },
 ];
 
-let cacheCanais = CANAIS_FALLBACK;
-let usuarios = [];
-
-try {
-    const data = fs.readFileSync('usuarios.json', 'utf8');
-    usuarios = JSON.parse(data);
-} catch {
-    usuarios = [
-        { id: '1', username: 'teste', contato: 'teste@teste.com', password: '123456', plano: 'mensal', data_expiracao: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), status: 'ativo', mac_address: null }
-    ];
-    fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
-}
-
 function validarUsuario(username, password) {
-    const user = usuarios.find(u => u.username === username && u.password === password);
-    if (!user) return null;
-    if (new Date() > new Date(user.data_expiracao)) return null;
-    return user;
+    return usuarios.find(u => u.username === username && u.password === password) || null;
 }
 
 function validarPorMac(mac) {
     if (!mac) return null;
-    const user = usuarios.find(u => u.mac_address === mac);
-    if (!user) return null;
-    if (new Date() > new Date(user.data_expiracao)) return null;
+    return usuarios.find(u => u.mac_address === mac) || null;
+}
+
+function salvarUsuarios() { fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2)); }
+
+function criarUsuario(dados) {
+    const { username, password, plano, contato, mac } = dados;
+    const dataExpiracao = calcularExpiracao(plano);
+    const novoUsuario = {
+        id: 'usr_' + Date.now(),
+        username,
+        password: password || gerarSenhaAleatoria(10),
+        contato: contato || null,
+        plano: plano || 'teste',
+        data_expiracao: dataExpiracao.toISOString(),
+        status: 'ativo',
+        mac_address: mac || null,
+        criado_em: new Date().toISOString()
+    };
+    usuarios.push(novoUsuario);
+    salvarUsuarios();
+    return novoUsuario;
+}
+
+function renovarUsuario(id, plano) {
+    const user = usuarios.find(u => u.id === id);
+    if (!user) throw new Error('Usuário não encontrado');
+    const dataExpiracao = calcularExpiracao(plano);
+    user.data_expiracao = dataExpiracao.toISOString();
+    user.plano = plano;
+    user.status = 'ativo';
+    salvarUsuarios();
     return user;
+}
+
+function excluirUsuario(id) {
+    const index = usuarios.findIndex(u => u.id === id);
+    if (index === -1) throw new Error('Usuário não encontrado');
+    usuarios.splice(index, 1);
+    salvarUsuarios();
 }
 
 async function gerarPlaylistM3U(usuario) {
     const expiracao = new Date(usuario.data_expiracao);
     const diasRestantes = Math.ceil((expiracao - new Date()) / (1000 * 60 * 60 * 24));
     let playlist = '#EXTM3U\n';
-    playlist += `#PLAYLIST: IPTV Manager Pro\n`;
-    playlist += `#PLAYLIST: ${usuario.username} - ${usuario.plano.toUpperCase()}\n`;
+    playlist += `#PLAYLIST: IPTV Manager Pro - ${usuario.username}\n`;
     playlist += `#EXTINF:-1,📅 Expira em: ${diasRestantes} dias\n\n`;
     const grupos = {};
-    cacheCanais.forEach(canal => {
-        const grupo = canal.origem || '📡 Vector';
+    CANAIS_FALLBACK.forEach(canal => {
+        const grupo = canal.origem || 'Canais';
         if (!grupos[grupo]) grupos[grupo] = [];
         grupos[grupo].push(canal);
     });
     for (const grupo of Object.keys(grupos)) {
-        playlist += `#EXTINF:-1 tvg-logo="",📁 📡 ${grupo}\n`;
+        playlist += `#EXTINF:-1 tvg-logo="",📁 ${grupo}\n`;
         playlist += `#EXTGRP:${grupo}\n`;
         grupos[grupo].forEach(canal => {
             playlist += `#EXTINF:-1 tvg-logo="${canal.logo || ''}",${canal.nome}\n`;
@@ -120,23 +197,15 @@ async function gerarPlaylistM3U(usuario) {
 // ============================================
 // SERVIDOR HTTP
 // ============================================
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
     const reqUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const pathname = reqUrl.pathname;
-
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, PUT, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
-    if (req.method === 'OPTIONS') {
-        res.writeHead(200);
-        res.end();
-        return;
-    }
-
-    // ============================================
-    // ROTA: /api/login
-    // ============================================
+    // ===== LOGIN =====
     if (pathname === '/api/login' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -145,34 +214,20 @@ const server = http.createServer((req, res) => {
                 const dados = JSON.parse(body);
                 if (dados.username === ADMIN_USER && dados.password === ADMIN_PASS) {
                     const token = criarSessao();
-                    // Definir o cookie de sessão
-                    res.setHeader('Set-Cookie', `token=${token}; HttpOnly; Max-Age=${TEMPO_SESSAO / 1000}; Path=/`);
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: true, token }));
                 } else {
                     res.writeHead(401, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: false, error: 'Credenciais inválidas' }));
                 }
-            } catch (error) {
-                res.writeHead(500, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: false, error: 'Erro interno' }));
-            }
+            } catch { res.writeHead(500); res.end(); }
         });
         return;
     }
 
-    // ============================================
-    // ROTA: /api/usuarios - PROTEGIDA
-    // ============================================
+    // ===== USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
-        // Verificar token no cookie
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
-
+        const token = req.headers.authorization?.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -183,163 +238,169 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // ============================================
-    // ROTA: /dashboard - PROTEGIDA
-    // ============================================
-    if (pathname === '/dashboard') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
-
+    // ===== CRIAR =====
+    if (pathname === '/api/criar' && req.method === 'POST') {
+        const token = req.headers.authorization?.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
-            res.writeHead(302, { 'Location': '/' });
-            res.end();
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
             return;
         }
-        let filePath = './public/index.html';
-        serveStatic(filePath, res);
-        return;
-    }
-
-    // ============================================
-    // ROTA: / (RAIZ)
-    // ============================================
-    if (pathname === '/') {
-        let filePath = './public/login.html';
-        if (!fs.existsSync(filePath)) {
-            const loginHtml = `<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Manager Pro - Login</title>
-    <style>
-        body { font-family: Arial; background: #0a0e17; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .login-container { background: #141b2b; padding: 40px; border-radius: 12px; border: 1px solid #1a2a3a; width: 100%; max-width: 380px; }
-        h1 { color: #00d4ff; text-align: center; margin-bottom: 30px; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; color: #8899aa; }
-        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; font-size: 16px; }
-        input:focus { border-color: #00d4ff; outline: none; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #00d4ff; color: #0a0e17; font-size: 16px; font-weight: 600; cursor: pointer; }
-        button:hover { background: #00b8e6; }
-        .error { color: #ff5252; text-align: center; margin-top: 15px; display: none; }
-        .logo { text-align: center; font-size: 48px; margin-bottom: 20px; }
-    </style>
-</head>
-<body>
-<div class="login-container">
-    <div class="logo">📺</div>
-    <h1>IPTV Manager Pro</h1>
-    <form id="loginForm">
-        <div class="form-group">
-            <label>👤 Utilizador</label>
-            <input type="text" id="username" value="admin" required>
-        </div>
-        <div class="form-group">
-            <label>🔑 Senha</label>
-            <input type="password" id="password" value="iptv2024" required>
-        </div>
-        <button type="submit">Entrar</button>
-        <div id="error" class="error">Credenciais inválidas!</div>
-    </form>
-</div>
-<script>
-document.getElementById('loginForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const errorDiv = document.getElementById('error');
-    errorDiv.style.display = 'none';
-
-    try {
-        const response = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', () => {
+            try {
+                const dados = JSON.parse(body);
+                const { username, password, plano, contato, mac } = dados;
+                if (!username) throw new Error('Username é obrigatório');
+                if (usuarios.some(u => u.username === username)) throw new Error('Username já existe');
+                const novo = criarUsuario({ username, password: password || gerarSenhaAleatoria(10), plano, contato, mac });
+                res.writeHead(201, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, data: novo }));
+            } catch (error) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
         });
-        const data = await response.json();
-        if (data.success) {
-            window.location.href = '/dashboard';
-        } else {
-            errorDiv.textContent = data.error || 'Credenciais inválidas';
-            errorDiv.style.display = 'block';
-        }
-    } catch (error) {
-        errorDiv.textContent = 'Erro ao conectar ao servidor';
-        errorDiv.style.display = 'block';
-    }
-});
-</script>
-</body>
-</html>`;
-            fs.writeFileSync('./public/login.html', loginHtml);
-        }
-        serveStatic(filePath, res);
         return;
     }
 
-    // ============================================
-    // ROTA: /playlist.m3u (PÚBLICA)
-    // ============================================
+    // ===== RENOVAR =====
+    if (pathname === '/api/renovar' && req.method === 'PUT') {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token || !validarSessao(token)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            return;
+        }
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+            try {
+                const dados = JSON.parse(body);
+                const { id, plano } = dados;
+                if (!id || !plano) throw new Error('ID e plano são obrigatórios');
+                const user = renovarUsuario(id, plano);
+                
+                // Enviar notificação WhatsApp
+                await notificarRenovacao(user, plano, user.data_expiracao);
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, data: user, notificacao: 'Enviada' }));
+            } catch (error) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
+    }
+
+    // ===== NOTIFICAR (ENVIAR WHATSAPP MANUALMENTE) =====
+    if (pathname === '/api/notificar' && req.method === 'POST') {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token || !validarSessao(token)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            return;
+        }
+        let body = '';
+        req.on('data', chunk => { body += chunk; });
+        req.on('end', async () => {
+            try {
+                const dados = JSON.parse(body);
+                const { id } = dados;
+                const user = usuarios.find(u => u.id === id);
+                if (!user) throw new Error('Usuário não encontrado');
+                if (!user.contato) throw new Error('Usuário não tem contato');
+                
+                const mensagem = gerarMensagemRenovacao(user, user.plano, user.data_expiracao);
+                await enviarWhatsApp(user.contato, mensagem);
+                
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: true, message: 'Notificação enviada!' }));
+            } catch (error) {
+                res.writeHead(400, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: error.message }));
+            }
+        });
+        return;
+    }
+
+    // ===== EXCLUIR =====
+    if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token || !validarSessao(token)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            return;
+        }
+        const id = pathname.replace('/api/excluir/', '');
+        try {
+            excluirUsuario(id);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Usuário excluído' }));
+        } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: error.message }));
+        }
+        return;
+    }
+
+    // ===== DASHBOARD =====
+    if (pathname === '/dashboard') {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token || !validarSessao(token)) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            return;
+        }
+        serveStatic('./public/index.html', res);
+        return;
+    }
+
+    // ===== RAIZ =====
+    if (pathname === '/') {
+        serveStatic('./public/login.html', res);
+        return;
+    }
+
+    // ===== PLAYLIST =====
     if (pathname === '/playlist.m3u' || pathname === '/get.php') {
         const username = reqUrl.searchParams.get('username');
         const password = reqUrl.searchParams.get('password');
         const mac = reqUrl.searchParams.get('mac');
-
         let user = null;
         if (mac) user = validarPorMac(mac);
         else if (username && password) user = validarUsuario(username, password);
-
         if (!user) {
             res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' });
             res.end('Erro: Credenciais inválidas ou assinatura expirada');
             return;
         }
-
-        gerarPlaylistM3U(user).then(playlist => {
-            res.writeHead(200, {
-                'Content-Type': 'audio/x-mpegurl',
-                'Content-Disposition': 'attachment; filename="playlist.m3u"'
-            });
-            res.end(playlist);
+        const playlist = await gerarPlaylistM3U(user);
+        res.writeHead(200, {
+            'Content-Type': 'audio/x-mpegurl',
+            'Content-Disposition': 'attachment; filename="playlist.m3u"'
         });
+        res.end(playlist);
         return;
     }
 
-    // ============================================
-    // ROTA: /player_api.php (PÚBLICA)
-    // ============================================
-    if (pathname === '/player_api.php') {
-        // ... (mantido igual)
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ user_info: { auth: 0 }, channels: [] }));
-        return;
-    }
-
-    // ============================================
-    // ARQUIVOS ESTÁTICOS
-    // ============================================
+    // ===== ESTÁTICOS =====
     let filePath = '.' + pathname;
     if (!filePath.startsWith('./public')) filePath = './public' + pathname;
     try {
-        if (fs.existsSync(filePath)) {
-            serveStatic(filePath, res);
-            return;
-        }
+        if (fs.existsSync(filePath)) { serveStatic(filePath, res); return; }
     } catch {}
-
     res.writeHead(404, { 'Content-Type': 'text/plain' });
     res.end('Rota não encontrada');
 });
 
 server.listen(PORT, () => {
     console.log('==================================================');
-    console.log('📺 IPTV Manager Pro - Autenticação por Sessão');
+    console.log('📺 IPTV Manager Pro - Com WhatsApp');
     console.log('🌐 Porta: ' + PORT);
     console.log('🔑 Admin: admin / iptv2024');
+    console.log('📱 WhatsApp: ' + CONTATO_PROVEDOR);
     console.log('==================================================');
 });

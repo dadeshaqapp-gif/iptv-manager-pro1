@@ -3,17 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Manager Pro - Dashboard</title>
+    <title>IPTV Manager Pro</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #0a0e17; color: #e0e0e0; padding: 20px; }
-        h1 { color: #00d4ff; margin-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { color: #00d4ff; }
+        .btn-logout { background: #ff5252; color: #fff; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .btn-logout:hover { background: #d32f2f; }
         .container { background: #141b2b; padding: 20px; border-radius: 10px; border: 1px solid #1a2a3a; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; color: #8899aa; }
-        input, select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; }
-        button { background: #00d4ff; color: #0a0e17; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #00b8e6; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; }
+        .form-group label { color: #8899aa; font-size: 12px; text-transform: uppercase; }
+        .form-group input, .form-group select { padding: 10px; border-radius: 5px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .btn-primary { background: #00d4ff; color: #0a0e17; }
+        .btn-primary:hover { background: #00b8e6; }
+        .btn-success { background: #00e676; color: #0a0e17; }
+        .btn-success:hover { background: #00c853; }
+        .btn-warning { background: #ffab00; color: #0a0e17; }
+        .btn-warning:hover { background: #ff8f00; }
+        .btn-danger { background: #ff5252; color: #fff; }
+        .btn-danger:hover { background: #d32f2f; }
+        .btn-whatsapp { background: #25D366; color: #fff; }
+        .btn-whatsapp:hover { background: #128C7E; }
+        .btn-small { padding: 5px 12px; font-size: 12px; }
+        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .filtros { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .filtros input, .filtros select { padding: 8px; border-radius: 5px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 10px; text-align: left; border-bottom: 1px solid #1a2a3a; }
         th { color: #00d4ff; }
@@ -21,80 +38,80 @@
         .badge-success { background: #00e67633; color: #00e676; border: 1px solid #00e676; }
         .badge-danger { background: #ff525233; color: #ff5252; border: 1px solid #ff5252; }
         .badge-warning { background: #ffab0033; color: #ffab00; border: 1px solid #ffab00; }
-        .btn-delete { background: #ff525233; color: #ff5252; border: 1px solid #ff5252; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
-        .btn-delete:hover { background: #ff5252; color: #fff; }
-        .btn-logout { background: #ff5252; color: #fff; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; float: right; }
-        .btn-logout:hover { background: #d32f2f; }
         .url-copy { background: #00d4ff22; color: #00d4ff; padding: 4px 10px; border-radius: 4px; border: 1px solid #00d4ff44; cursor: pointer; font-size: 12px; }
         .url-copy:hover { background: #00d4ff44; }
-        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .quick-actions button { background: #1a2a3a; color: #e0e0e0; border: 1px solid #2a3a4a; }
-        .quick-actions button:hover { background: #2a3a4a; }
-        .filtros { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        .filtros input, .filtros select { width: auto; min-width: 150px; }
+        .msg { margin-top: 10px; padding: 10px; border-radius: 5px; display: none; }
+        .msg-success { display: block; color: #00e676; border: 1px solid #00e676; background: #00e67622; }
+        .msg-error { display: block; color: #ff5252; border: 1px solid #ff5252; background: #ff525222; }
+        @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
 <body>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div class="header">
         <h1>📺 IPTV Manager Pro</h1>
         <button class="btn-logout" onclick="logout()">🚪 Sair</button>
     </div>
 
     <div class="container">
         <h2>➕ Criar Novo Utilizador</h2>
-        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
+        <div class="form-grid">
             <div class="form-group">
                 <label>👤 Utilizador</label>
                 <input type="text" id="inputUsername" placeholder="Ex: joao123">
             </div>
             <div class="form-group">
-                <label>📧 Contato</label>
-                <input type="text" id="inputContato" placeholder="Email ou Telefone">
+                <label>📧 Contato (WhatsApp)</label>
+                <input type="text" id="inputContato" placeholder="879641990">
             </div>
             <div class="form-group">
                 <label>🔑 Senha</label>
-                <input type="text" id="inputPassword" placeholder="Senha">
+                <input type="text" id="inputPassword" placeholder="Deixar vazio = gerar automática">
             </div>
             <div class="form-group">
                 <label>📋 Plano</label>
                 <select id="inputPlano">
                     <option value="teste">Teste (2h)</option>
                     <option value="mensal">Mensal (30d)</option>
-                    <option value="trimestral">Trimestral (4m)</option>
-                    <option value="anual">Anual (12m)</option>
+                    <option value="trimestral">Trimestral (90d)</option>
+                    <option value="anual">Anual (365d)</option>
                 </select>
             </div>
             <div class="form-group">
-                <button onclick="criarUsuario()" style="width:100%;">➕ Criar</button>
+                <label>📶 MAC</label>
+                <input type="text" id="inputMac" placeholder="AA:BB:CC:DD:EE:FF">
+            </div>
+            <div style="display:flex; gap:10px; align-items:end;">
+                <button class="btn btn-primary" onclick="criarUsuario()">➕ Criar</button>
+                <button class="btn btn-success" onclick="gerarSenha()">🎲 Senha</button>
             </div>
         </div>
-        <div id="mensagemFeedback" style="margin-top:10px; padding:10px; border-radius:5px; display:none;"></div>
+        <div id="mensagemFeedback" class="msg"></div>
     </div>
 
     <div class="container">
-        <h2>⚡ Gerar Credenciais Rápidas</h2>
+        <h2>⚡ Ações Rápidas</h2>
         <div class="quick-actions">
-            <button onclick="gerarRapido('teste')">🎯 Teste (2h)</button>
-            <button onclick="gerarRapido('mensal')">📅 Mensal (30d)</button>
-            <button onclick="gerarRapido('trimestral')">📆 Trimestral (4m)</button>
-            <button onclick="gerarRapido('anual')">📅 Anual (12m)</button>
+            <button class="btn btn-primary btn-small" onclick="gerarRapido('teste')">🎯 Teste (2h)</button>
+            <button class="btn btn-success btn-small" onclick="gerarRapido('mensal')">📅 Mensal (30d)</button>
+            <button class="btn btn-warning btn-small" onclick="gerarRapido('trimestral')">📆 Trimestral (90d)</button>
+            <button class="btn btn-danger btn-small" onclick="gerarRapido('anual')">📅 Anual (365d)</button>
         </div>
     </div>
 
     <div class="container">
         <h2>📋 Utilizadores Cadastrados</h2>
         <div class="filtros">
-            <input type="text" id="searchInput" placeholder="🔍 Buscar utilizador..." oninput="filtrarTabela()">
+            <input type="text" id="searchInput" placeholder="🔍 Buscar..." oninput="filtrarTabela()">
             <select id="filtroPlano" onchange="filtrarTabela()">
-                <option value="todos">Todos os planos</option>
+                <option value="todos">Todos</option>
                 <option value="teste">Teste</option>
                 <option value="mensal">Mensal</option>
                 <option value="trimestral">Trimestral</option>
                 <option value="anual">Anual</option>
             </select>
             <select id="filtroStatus" onchange="filtrarTabela()">
-                <option value="todos">Todos os status</option>
+                <option value="todos">Todos</option>
                 <option value="ativo">Ativo</option>
                 <option value="expirado">Expirado</option>
             </select>
@@ -110,12 +127,13 @@
                         <th>Plano</th>
                         <th>Expiração</th>
                         <th>Status</th>
-                        <th>URL M3U</th>
+                        <th>MAC</th>
+                        <th>URL</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody id="listaUsuarios">
-                    <tr><td colspan="8" style="text-align:center;padding:20px;color:#8899aa;">⏳ Carregando...</td></tr>
+                    <tr><td colspan="9" style="text-align:center;padding:20px;color:#8899aa;">⏳ Carregando...</td></tr>
                 </tbody>
             </table>
         </div>
@@ -123,10 +141,9 @@
 
     <script>
         const API_BASE = '/api';
+        let usuarios = [];
 
-        // ============================================
-        // INTERCEPTAR FETCH PARA ADICIONAR TOKEN
-        // ============================================
+        // Interceptar fetch para adicionar token
         const originalFetch = window.fetch;
         window.fetch = function(url, options = {}) {
             const token = localStorage.getItem('token');
@@ -134,7 +151,6 @@
                 options.headers = options.headers || {};
                 options.headers['Authorization'] = 'Bearer ' + token;
             }
-            // Se der erro 401, redirecionar para login
             return originalFetch.call(this, url, options).then(response => {
                 if (response.status === 401) {
                     localStorage.removeItem('token');
@@ -144,9 +160,6 @@
             });
         };
 
-        // ============================================
-        // CARREGAR USUÁRIOS
-        // ============================================
         async function carregarUsuarios() {
             try {
                 const response = await fetch(`${API_BASE}/usuarios`);
@@ -155,35 +168,40 @@
                     usuarios = data.data || [];
                     filtrarTabela();
                 }
-            } catch (error) {
-                console.error('Erro:', error);
-            }
+            } catch (error) { console.error('Erro:', error); }
         }
 
-        // ============================================
-        // CRIAR USUÁRIO
-        // ============================================
+        function gerarSenha() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
+            let senha = '';
+            for (let i = 0; i < 10; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
+            document.getElementById('inputPassword').value = senha;
+            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
+        }
+
         async function criarUsuario() {
             const username = document.getElementById('inputUsername').value.trim();
             const contato = document.getElementById('inputContato').value.trim();
             let password = document.getElementById('inputPassword').value.trim();
             const plano = document.getElementById('inputPlano').value;
+            const mac = document.getElementById('inputMac').value.trim().toUpperCase();
 
             if (!username) { mostrarFeedback('❌ Utilizador é obrigatório!', 'error'); return; }
-            if (!password) { password = gerarSenha(8); document.getElementById('inputPassword').value = password; }
+            if (!password) { password = gerarSenhaAleatoria(10); document.getElementById('inputPassword').value = password; }
 
             try {
                 const response = await fetch(`${API_BASE}/criar`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password, plano, contato })
+                    body: JSON.stringify({ username, password, plano, contato, mac })
                 });
                 const data = await response.json();
                 if (data.success) {
-                    mostrarFeedback(`✅ Utilizador "${username}" criado!`, 'success');
+                    mostrarFeedback(`✅ Utilizador "${username}" criado! Senha: ${password}`, 'success');
                     document.getElementById('inputUsername').value = '';
                     document.getElementById('inputContato').value = '';
                     document.getElementById('inputPassword').value = '';
+                    document.getElementById('inputMac').value = '';
                     carregarUsuarios();
                 } else {
                     mostrarFeedback('❌ ' + data.error, 'error');
@@ -193,12 +211,55 @@
             }
         }
 
-        // ============================================
-        // GERAR RÁPIDO
-        // ============================================
+        function gerarSenhaAleatoria(tamanho) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
+            let senha = '';
+            for (let i = 0; i < tamanho; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
+            return senha;
+        }
+
+        async function renovarUsuario(id, plano) {
+            if (!confirm(`⚠️ Renovar para ${plano.toUpperCase()}?`)) return;
+            try {
+                const response = await fetch(`${API_BASE}/renovar`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, plano })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    mostrarFeedback(`✅ Usuário renovado para ${plano.toUpperCase()}! WhatsApp notificado!`, 'success');
+                    carregarUsuarios();
+                } else {
+                    mostrarFeedback('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                mostrarFeedback('❌ Erro: ' + error.message, 'error');
+            }
+        }
+
+        async function notificarUsuario(id) {
+            if (!confirm('📱 Enviar notificação WhatsApp?')) return;
+            try {
+                const response = await fetch(`${API_BASE}/notificar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    mostrarFeedback('📱 WhatsApp enviado com sucesso!', 'success');
+                } else {
+                    mostrarFeedback('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                mostrarFeedback('❌ Erro: ' + error.message, 'error');
+            }
+        }
+
         async function gerarRapido(plano) {
             const username = 'user_' + Math.random().toString(36).substr(2, 5);
-            const password = gerarSenha(10);
+            const password = gerarSenhaAleatoria(10);
             try {
                 const response = await fetch(`${API_BASE}/criar`, {
                     method: 'POST',
@@ -210,60 +271,34 @@
                     alert(`✅ ${plano.toUpperCase()} criado!\n\n👤 ${username}\n🔑 ${password}`);
                     carregarUsuarios();
                 }
-            } catch (error) {
-                alert('❌ Erro: ' + error.message);
-            }
+            } catch (error) { alert('❌ Erro: ' + error.message); }
         }
 
-        // ============================================
-        // EXCLUIR USUÁRIO
-        // ============================================
         async function excluirUsuario(id) {
-            if (!confirm('⚠️ Tem certeza que deseja excluir este utilizador?')) return;
+            if (!confirm('⚠️ Tem certeza?')) return;
             try {
                 await fetch(`${API_BASE}/excluir/${id}`, { method: 'DELETE' });
                 carregarUsuarios();
-            } catch (error) {
-                console.error('Erro:', error);
-            }
-        }
-
-        // ============================================
-        // FUNÇÕES AUXILIARES
-        // ============================================
-        let usuarios = [];
-
-        function gerarSenha(tamanho) {
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
-            let senha = '';
-            for (let i = 0; i < tamanho; i++) {
-                senha += chars.charAt(Math.floor(Math.random() * chars.length));
-            }
-            return senha;
+            } catch (error) { console.error('Erro:', error); }
         }
 
         function mostrarFeedback(msg, tipo) {
             const el = document.getElementById('mensagemFeedback');
             el.textContent = msg;
-            el.style.display = 'block';
-            el.style.color = tipo === 'error' ? '#ff5252' : '#00e676';
-            el.style.border = '1px solid ' + (tipo === 'error' ? '#ff5252' : '#00e676');
-            el.style.background = tipo === 'error' ? '#ff525222' : '#00e67622';
-            setTimeout(() => { el.style.display = 'none'; }, 5000);
+            el.className = 'msg msg-' + tipo;
+            setTimeout(() => { el.className = 'msg'; }, 5000);
         }
 
         function filtrarTabela() {
             const search = document.getElementById('searchInput').value.toLowerCase();
             const plano = document.getElementById('filtroPlano').value;
             const status = document.getElementById('filtroStatus').value;
-
             const filtrados = usuarios.filter(u => {
                 const matchSearch = u.username.toLowerCase().includes(search);
                 const matchPlano = plano === 'todos' || u.plano === plano;
-                const matchStatus = status === 'todos' || (status === 'ativo' ? u.status === 'ativo' : u.status !== 'ativo');
+                const matchStatus = status === 'todos' || u.status === status;
                 return matchSearch && matchPlano && matchStatus;
             });
-
             renderizarTabela(filtrados);
             document.getElementById('totalRegistros').textContent = filtrados.length + ' registros';
         }
@@ -271,7 +306,7 @@
         function renderizarTabela(dados) {
             const tbody = document.getElementById('listaUsuarios');
             if (dados.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#8899aa;">📭 Nenhum utilizador</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;color:#8899aa;">📭 Nenhum utilizador</td></tr>';
                 return;
             }
             const baseUrl = window.location.origin;
@@ -280,15 +315,24 @@
                 const statusClass = u.status === 'ativo' ? 'badge-success' : 'badge-danger';
                 const statusText = u.status === 'ativo' ? '✅ Ativo' : '❌ Inativo';
                 const urlM3U = `${baseUrl}/playlist.m3u?username=${u.username}&password=${u.password}`;
+                const mac = u.mac_address || '-';
+                const planoLabel = u.plano ? u.plano.toUpperCase() : '-';
                 return `<tr>
                     <td><strong>${u.username}</strong></td>
                     <td>${u.contato || '-'}</td>
                     <td><span style="font-family:monospace;">${u.password}</span></td>
-                    <td><span class="badge badge-${u.plano}">${u.plano.toUpperCase()}</span></td>
+                    <td><span class="badge badge-${u.plano}">${planoLabel}</span></td>
                     <td>${expiracao}</td>
                     <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td style="font-size:11px;font-family:monospace;">${mac}</td>
                     <td><button class="url-copy" onclick="copiarUrl('${urlM3U}')">📋 Copiar</button></td>
-                    <td><button class="btn-delete" onclick="excluirUsuario('${u.id}')">🗑️</button></td>
+                    <td>
+                        <button class="btn btn-success btn-small" onclick="renovarUsuario('${u.id}','mensal')">+30d</button>
+                        <button class="btn btn-warning btn-small" onclick="renovarUsuario('${u.id}','trimestral')">+90d</button>
+                        <button class="btn btn-danger btn-small" onclick="renovarUsuario('${u.id}','anual')">+365d</button>
+                        <button class="btn btn-whatsapp btn-small" onclick="notificarUsuario('${u.id}')">📱</button>
+                        <button class="btn btn-danger btn-small" onclick="excluirUsuario('${u.id}')" style="background:#ff5252;">🗑️</button>
+                    </td>
                 </tr>`;
             }).join('');
         }
@@ -303,15 +347,7 @@
             window.location.href = '/';
         }
 
-        // Verificar token ao carregar a página
-        document.addEventListener('DOMContentLoaded', function() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/';
-                return;
-            }
-            carregarUsuarios();
-        });
+        document.addEventListener('DOMContentLoaded', carregarUsuarios);
     </script>
 </body>
 </html>
