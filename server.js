@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - VERSÃO DEFINITIVA
+// IPTV MANAGER PRO - COOKIES (FUNCIONA SEMPRE)
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -17,35 +17,18 @@ function gerarToken() { return crypto.randomBytes(32).toString('hex'); }
 function criarSessao() {
     const token = gerarToken();
     sessoes[token] = { criado_em: Date.now(), valido: true };
-    console.log(`✅ [TOKEN] Criado: ${token.substring(0, 20)}...`);
     return token;
 }
 
 function validarSessao(token) {
-    if (!token) {
-        console.log(`❌ [TOKEN] Token vazio`);
-        return false;
-    }
+    if (!token) return false;
     const sessao = sessoes[token];
-    if (!sessao) {
-        console.log(`❌ [TOKEN] Sessão não encontrada: ${token.substring(0, 20)}...`);
-        return false;
-    }
-    if (!sessao.valido) {
-        console.log(`❌ [TOKEN] Sessão inválida`);
-        return false;
-    }
+    if (!sessao || !sessao.valido) return false;
     if (Date.now() - sessao.criado_em > TEMPO_SESSAO) {
-        console.log(`❌ [TOKEN] Sessão expirada`);
         delete sessoes[token];
         return false;
     }
-    console.log(`✅ [TOKEN] Válido: ${token.substring(0, 20)}...`);
     return true;
-}
-
-function destruirSessao(token) {
-    if (token && sessoes[token]) delete sessoes[token];
 }
 
 function serveStatic(filePath, res) {
@@ -107,6 +90,7 @@ let usuarios = [];
 try {
     const data = fs.readFileSync('usuarios.json', 'utf8');
     usuarios = JSON.parse(data);
+    console.log(`✅ ${usuarios.length} usuários carregados`);
 } catch {
     usuarios = [];
     fs.writeFileSync('usuarios.json', JSON.stringify(usuarios, null, 2));
@@ -225,11 +209,11 @@ const server = http.createServer(async (req, res) => {
 
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, PUT, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
     if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
 
-    // ===== LOGIN =====
+    // ===== LOGIN (cria cookie) =====
     if (pathname === '/api/login' && req.method === 'POST') {
         let body = '';
         req.on('data', chunk => { body += chunk; });
@@ -238,6 +222,7 @@ const server = http.createServer(async (req, res) => {
                 const dados = JSON.parse(body);
                 if (dados.username === ADMIN_USER && dados.password === ADMIN_PASS) {
                     const token = criarSessao();
+                    res.setHeader('Set-Cookie', `token=${token}; Path=/; Max-Age=${TEMPO_SESSAO / 1000}; HttpOnly; SameSite=Lax`);
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: true, token }));
                 } else {
@@ -254,19 +239,25 @@ const server = http.createServer(async (req, res) => {
 
     // ===== LOGOUT =====
     if (pathname === '/api/logout' && req.method === 'POST') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
-        destruirSessao(token);
+        res.setHeader('Set-Cookie', 'token=; Path=/; Max-Age=0');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: 'Logout realizado' }));
         return;
     }
 
+    // ===== LER COOKIE =====
+    function getCookie() {
+        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
+            const [k, v] = c.trim().split('=');
+            acc[k] = v;
+            return acc;
+        }, {}) : {};
+        return cookies.token;
+    }
+
     // ===== USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
-        console.log(`🔍 [API] Token recebido: ${token ? token.substring(0, 20) + '...' : 'NENHUM'}`);
+        const token = getCookie();
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -279,8 +270,7 @@ const server = http.createServer(async (req, res) => {
 
     // ===== CRIAR =====
     if (pathname === '/api/criar' && req.method === 'POST') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
+        const token = getCookie();
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -307,8 +297,7 @@ const server = http.createServer(async (req, res) => {
 
     // ===== RENOVAR =====
     if (pathname === '/api/renovar' && req.method === 'PUT') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
+        const token = getCookie();
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -335,8 +324,7 @@ const server = http.createServer(async (req, res) => {
 
     // ===== NOTIFICAR =====
     if (pathname === '/api/notificar' && req.method === 'POST') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
+        const token = getCookie();
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -365,8 +353,7 @@ const server = http.createServer(async (req, res) => {
 
     // ===== EXCLUIR =====
     if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
+        const token = getCookie();
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -386,12 +373,10 @@ const server = http.createServer(async (req, res) => {
 
     // ===== DASHBOARD =====
     if (pathname === '/dashboard') {
-        const authHeader = req.headers.authorization || '';
-        const token = authHeader.replace('Bearer ', '');
-        console.log(`🔍 [DASHBOARD] Token: ${token ? token.substring(0, 20) + '...' : 'NENHUM'}`);
+        const token = getCookie();
         if (!token || !validarSessao(token)) {
-            res.writeHead(401, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            res.writeHead(302, { 'Location': '/' });
+            res.end();
             return;
         }
         serveStatic('./public/index.html', res);
@@ -437,7 +422,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
     console.log('==================================================');
-    console.log('📺 IPTV Manager Pro - Versão Definitiva');
+    console.log('📺 IPTV Manager Pro - Cookies (Funciona sempre!)');
     console.log('🌐 Porta: ' + PORT);
     console.log('🔑 Admin: admin / iptv2024');
     console.log('📱 WhatsApp: ' + CONTATO_PROVEDOR);
