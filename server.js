@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - COM LOGIN
+// IPTV MANAGER PRO - COM LOGIN E DASHBOARD
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -24,9 +24,6 @@ function gerarToken() {
 function criarSessao() {
     const token = gerarToken();
     sessoes[token] = { criado_em: Date.now(), valido: true };
-    for (const [key, sessao] of Object.entries(sessoes)) {
-        if (Date.now() - sessao.criado_em > TEMPO_SESSAO) delete sessoes[key];
-    }
     return token;
 }
 
@@ -117,9 +114,7 @@ async function buscarCanaisServer(server) {
             if (linhaLimpa.startsWith('#EXTINF:')) {
                 const matchNome = linhaLimpa.match(/,([^,]+)$/);
                 const nome = matchNome ? matchNome[1] : 'Canal';
-                const matchLogo = linhaLimpa.match(/tvg-logo="([^"]+)"/);
-                const logo = matchLogo ? matchLogo[1] : '';
-                canalAtual = { nome, url: '', logo, origem: server.nome };
+                canalAtual = { nome, url: '', logo: '', origem: server.nome };
             } else if (linhaLimpa && !linhaLimpa.startsWith('#') && canalAtual) {
                 if (linhaLimpa.startsWith('http://') || linhaLimpa.startsWith('https://')) {
                     canalAtual.url = linhaLimpa;
@@ -264,61 +259,128 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ============================================
-    // VERIFICAR AUTENTICAÇÃO
+    // ROTA: /dashboard (redirecionar para /index.html)
     // ============================================
-    const isProtected = pathname === '/' || pathname === '/dashboard' || pathname === '/api/usuarios' || pathname === '/index.html';
-
-    if (isProtected && pathname !== '/api/login' && pathname !== '/api/logout') {
+    if (pathname === '/dashboard') {
         const token = req.headers.authorization?.replace('Bearer ', '');
-        
-        // Se for a página inicial e não tiver token, servir login
-        if (pathname === '/' && !token) {
-            let filePath = './public/login.html';
-            if (!fs.existsSync(filePath)) {
-                // Criar login.html se não existir
-                const loginHtml = `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>IPTV Manager Pro - Login</title>
-<style>body{font-family:Arial;background:#0a0e17;color:#e0e0e0;display:flex;justify-content:center;align-items:center;height:100vh;margin:0}.login-container{background:#141b2b;padding:40px;border-radius:12px;border:1px solid #1a2a3a;width:100%;max-width:380px}h1{color:#00d4ff;text-align:center;margin-bottom:30px}.form-group{margin-bottom:20px}label{display:block;margin-bottom:8px;color:#8899aa}input{width:100%;padding:12px;border-radius:8px;border:1px solid #1a2a3a;background:#0a0e17;color:#e0e0e0;font-size:16px}input:focus{border-color:#00d4ff;outline:none}button{width:100%;padding:12px;border:none;border-radius:8px;background:#00d4ff;color:#0a0e17;font-size:16px;font-weight:600;cursor:pointer}button:hover{background:#00b8e6}.error{color:#ff5252;text-align:center;margin-top:15px;display:none}.logo{text-align:center;font-size:48px;margin-bottom:20px}</style>
-</head>
-<body>
-<div class="login-container"><div class="logo">📺</div><h1>IPTV Manager Pro</h1>
-<form id="loginForm">
-<div class="form-group"><label>👤 Utilizador</label><input type="text" id="username" value="admin" required></div>
-<div class="form-group"><label>🔑 Senha</label><input type="password" id="password" value="iptv2024" required></div>
-<button type="submit">Entrar</button>
-<div id="error" class="error">Credenciais inválidas!</div>
-</form></div>
-<script>
-document.getElementById('loginForm').addEventListener('submit', async function(e){
-e.preventDefault();
-const username=document.getElementById('username').value;
-const password=document.getElementById('password').value;
-const errorDiv=document.getElementById('error');
-errorDiv.style.display='none';
-try{
-const response=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password})});
-const data=await response.json();
-if(data.success){localStorage.setItem('token',data.token);window.location.href='/dashboard';}
-else{errorDiv.textContent=data.error||'Credenciais inválidas';errorDiv.style.display='block';}
-}catch(error){errorDiv.textContent='Erro ao conectar';errorDiv.style.display='block';}
-});
-</script>
-</body>
-</html>`;
-                fs.writeFileSync('./public/login.html', loginHtml);
-                filePath = './public/login.html';
-            }
-            serveStatic(filePath, res);
-            return;
-        }
-
-        // Verificar token para outras páginas
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
             return;
         }
+        // Servir o index.html da pasta public
+        let filePath = './public/index.html';
+        serveStatic(filePath, res);
+        return;
+    }
+
+    // ============================================
+    // ROTA: / (raiz) - servir login.html
+    // ============================================
+    if (pathname === '/') {
+        let filePath = './public/login.html';
+        // Verificar se login.html existe, senão criar
+        if (!fs.existsSync(filePath)) {
+            const loginHtml = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Manager Pro - Login</title>
+    <style>
+        body { font-family: Arial; background: #0a0e17; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-container { background: #141b2b; padding: 40px; border-radius: 12px; border: 1px solid #1a2a3a; width: 100%; max-width: 380px; }
+        h1 { color: #00d4ff; text-align: center; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #8899aa; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; font-size: 16px; }
+        input:focus { border-color: #00d4ff; outline: none; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #00d4ff; color: #0a0e17; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button:hover { background: #00b8e6; }
+        .error { color: #ff5252; text-align: center; margin-top: 15px; display: none; }
+        .logo { text-align: center; font-size: 48px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div class="login-container">
+    <div class="logo">📺</div>
+    <h1>IPTV Manager Pro</h1>
+    <form id="loginForm">
+        <div class="form-group">
+            <label>👤 Utilizador</label>
+            <input type="text" id="username" value="admin" required>
+        </div>
+        <div class="form-group">
+            <label>🔑 Senha</label>
+            <input type="password" id="password" value="iptv2024" required>
+        </div>
+        <button type="submit">Entrar</button>
+        <div id="error" class="error">Credenciais inválidas!</div>
+    </form>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('error');
+    errorDiv.style.display = 'none';
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (data.success) {
+            localStorage.setItem('token', data.token);
+            // Redirecionar para /dashboard com token no header
+            window.location.href = '/dashboard';
+        } else {
+            errorDiv.textContent = data.error || 'Credenciais inválidas';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Erro ao conectar';
+        errorDiv.style.display = 'block';
+    }
+});
+</script>
+</body>
+</html>`;
+            fs.writeFileSync('./public/login.html', loginHtml);
+        }
+        serveStatic(filePath, res);
+        return;
+    }
+
+    // ============================================
+    // ROTAS PROTEGIDAS: /index.html, /api/usuarios
+    // ============================================
+    if (pathname === '/index.html' || pathname === '/api/usuarios') {
+        const token = req.headers.authorization?.replace('Bearer ', '');
+        if (!token || !validarSessao(token)) {
+            if (pathname === '/api/usuarios') {
+                res.writeHead(401, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
+            } else {
+                // Para index.html, redirecionar para login
+                res.writeHead(302, { 'Location': '/' });
+                res.end();
+            }
+            return;
+        }
+        
+        if (pathname === '/api/usuarios' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, data: usuarios }));
+            return;
+        }
+        
+        // Servir index.html
+        let filePath = './public/index.html';
+        serveStatic(filePath, res);
+        return;
     }
 
     // ============================================
@@ -429,22 +491,11 @@ else{errorDiv.textContent=data.error||'Credenciais inválidas';errorDiv.style.di
     }
 
     // ============================================
-    // ROTA: /api/usuarios
-    // ============================================
-    if (pathname === '/api/usuarios' && req.method === 'GET') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ success: true, data: usuarios }));
-        return;
-    }
-
-    // ============================================
-    // ARQUIVOS ESTÁTICOS
+    // ARQUIVOS ESTÁTICOS (css, js, etc.)
     // ============================================
     let filePath = '.' + pathname;
-    if (filePath === './') filePath = './public/login.html';
-    if (filePath === './dashboard') filePath = './public/index.html';
     if (!filePath.startsWith('./public')) filePath = './public' + pathname;
-
+    
     try {
         await fs.promises.access(filePath);
         serveStatic(filePath, res);
@@ -456,10 +507,9 @@ else{errorDiv.textContent=data.error||'Credenciais inválidas';errorDiv.style.di
 
 server.listen(PORT, async () => {
     console.log('==================================================');
-    console.log('📺 IPTV Manager Pro - Servidor Xtream Codes Ativo!');
+    console.log('📺 IPTV Manager Pro - Servidor com Login!');
     console.log('🌐 Porta: ' + PORT);
+    console.log('🔑 Admin: admin / iptv2024');
     console.log('==================================================');
-    console.log('🚀 [CACHE] Iniciando atualização de canais...');
     await atualizarCacheCanais();
-    console.log('⚠️ [CACHE] Pré-carregamento concluído em segundo plano.');
 });
