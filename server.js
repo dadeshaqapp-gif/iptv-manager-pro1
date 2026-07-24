@@ -1,5 +1,5 @@
 ﻿// ============================================
-// IPTV MANAGER PRO - CENTRALIZADO
+// IPTV MANAGER PRO - VERSÃO DEFINITIVA
 // ============================================
 const http = require('http');
 const fs = require('fs');
@@ -17,17 +17,30 @@ function gerarToken() { return crypto.randomBytes(32).toString('hex'); }
 function criarSessao() {
     const token = gerarToken();
     sessoes[token] = { criado_em: Date.now(), valido: true };
+    console.log(`✅ [TOKEN] Criado: ${token.substring(0, 20)}...`);
     return token;
 }
 
 function validarSessao(token) {
-    if (!token) return false;
+    if (!token) {
+        console.log(`❌ [TOKEN] Token vazio`);
+        return false;
+    }
     const sessao = sessoes[token];
-    if (!sessao || !sessao.valido) return false;
+    if (!sessao) {
+        console.log(`❌ [TOKEN] Sessão não encontrada: ${token.substring(0, 20)}...`);
+        return false;
+    }
+    if (!sessao.valido) {
+        console.log(`❌ [TOKEN] Sessão inválida`);
+        return false;
+    }
     if (Date.now() - sessao.criado_em > TEMPO_SESSAO) {
+        console.log(`❌ [TOKEN] Sessão expirada`);
         delete sessoes[token];
         return false;
     }
+    console.log(`✅ [TOKEN] Válido: ${token.substring(0, 20)}...`);
     return true;
 }
 
@@ -55,9 +68,7 @@ const CONTATO_PROVEDOR = '879641990';
 
 function formatarNumeroWhatsApp(numero) {
     const limpo = numero.replace(/\D/g, '');
-    if (limpo.startsWith('8') && limpo.length === 9) {
-        return `258${limpo}`;
-    }
+    if (limpo.startsWith('8') && limpo.length === 9) return `258${limpo}`;
     return limpo;
 }
 
@@ -80,15 +91,11 @@ Aproveite os seus canais! 📺`;
 async function enviarWhatsApp(numero, mensagem) {
     const numeroFormatado = formatarNumeroWhatsApp(numero);
     console.log(`📱 Enviando WhatsApp para ${numeroFormatado}...`);
-    console.log(`📝 Mensagem: ${mensagem}`);
-    return { success: true, message: 'Simulação de envio' };
+    return { success: true };
 }
 
 async function notificarRenovacao(usuario, plano, novaData) {
-    if (!usuario.contato) {
-        console.log(`⚠️ Usuário ${usuario.username} não tem contato`);
-        return;
-    }
+    if (!usuario.contato) return;
     const mensagem = gerarMensagemRenovacao(usuario, plano, novaData);
     await enviarWhatsApp(usuario.contato, mensagem);
 }
@@ -231,9 +238,6 @@ const server = http.createServer(async (req, res) => {
                 const dados = JSON.parse(body);
                 if (dados.username === ADMIN_USER && dados.password === ADMIN_PASS) {
                     const token = criarSessao();
-                    res.setHeader('Set-Cookie', [
-                        `token=${token}; HttpOnly; Max-Age=${TEMPO_SESSAO / 1000}; Path=/; SameSite=Lax`
-                    ]);
                     res.writeHead(200, { 'Content-Type': 'application/json' });
                     res.end(JSON.stringify({ success: true, token }));
                 } else {
@@ -250,14 +254,9 @@ const server = http.createServer(async (req, res) => {
 
     // ===== LOGOUT =====
     if (pathname === '/api/logout' && req.method === 'POST') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
         destruirSessao(token);
-        res.setHeader('Set-Cookie', 'token=; Max-Age=0; Path=/');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ success: true, message: 'Logout realizado' }));
         return;
@@ -265,12 +264,9 @@ const server = http.createServer(async (req, res) => {
 
     // ===== USUARIOS =====
     if (pathname === '/api/usuarios' && req.method === 'GET') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
+        console.log(`🔍 [API] Token recebido: ${token ? token.substring(0, 20) + '...' : 'NENHUM'}`);
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -283,12 +279,8 @@ const server = http.createServer(async (req, res) => {
 
     // ===== CRIAR =====
     if (pathname === '/api/criar' && req.method === 'POST') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -315,12 +307,8 @@ const server = http.createServer(async (req, res) => {
 
     // ===== RENOVAR =====
     if (pathname === '/api/renovar' && req.method === 'PUT') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -336,7 +324,7 @@ const server = http.createServer(async (req, res) => {
                 const user = renovarUsuario(id, plano);
                 await notificarRenovacao(user, plano, user.data_expiracao);
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: true, data: user, notificacao: 'Enviada' }));
+                res.end(JSON.stringify({ success: true, data: user }));
             } catch (error) {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ success: false, error: error.message }));
@@ -347,12 +335,8 @@ const server = http.createServer(async (req, res) => {
 
     // ===== NOTIFICAR =====
     if (pathname === '/api/notificar' && req.method === 'POST') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -381,12 +365,8 @@ const server = http.createServer(async (req, res) => {
 
     // ===== EXCLUIR =====
     if (pathname.startsWith('/api/excluir/') && req.method === 'DELETE') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
         if (!token || !validarSessao(token)) {
             res.writeHead(401, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
@@ -406,15 +386,12 @@ const server = http.createServer(async (req, res) => {
 
     // ===== DASHBOARD =====
     if (pathname === '/dashboard') {
-        const cookies = req.headers.cookie ? req.headers.cookie.split(';').reduce((acc, c) => {
-            const [k, v] = c.trim().split('=');
-            acc[k] = v;
-            return acc;
-        }, {}) : {};
-        const token = cookies.token;
+        const authHeader = req.headers.authorization || '';
+        const token = authHeader.replace('Bearer ', '');
+        console.log(`🔍 [DASHBOARD] Token: ${token ? token.substring(0, 20) + '...' : 'NENHUM'}`);
         if (!token || !validarSessao(token)) {
-            res.writeHead(302, { 'Location': '/' });
-            res.end();
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Não autenticado', redirect: '/' }));
             return;
         }
         serveStatic('./public/index.html', res);
@@ -460,7 +437,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
     console.log('==================================================');
-    console.log('📺 IPTV Manager Pro - Centralizado');
+    console.log('📺 IPTV Manager Pro - Versão Definitiva');
     console.log('🌐 Porta: ' + PORT);
     console.log('🔑 Admin: admin / iptv2024');
     console.log('📱 WhatsApp: ' + CONTATO_PROVEDOR);

@@ -149,6 +149,28 @@
         const API_BASE = '/api';
         let usuarios = [];
 
+        // ============================================
+        // INTERCEPTAR FETCH PARA ADICIONAR TOKEN
+        // ============================================
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                options.headers = options.headers || {};
+                options.headers['Authorization'] = 'Bearer ' + token;
+            }
+            return originalFetch.call(this, url, options).then(response => {
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                }
+                return response;
+            });
+        };
+
+        // ============================================
+        // CARREGAR USUÁRIOS
+        // ============================================
         async function carregarUsuarios() {
             try {
                 const response = await fetch(`${API_BASE}/usuarios`);
@@ -160,19 +182,9 @@
             } catch (error) { console.error('Erro:', error); }
         }
 
-        function gerarSenhaAleatoria(tamanho) {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
-            let senha = '';
-            for (let i = 0; i < tamanho; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
-            return senha;
-        }
-
-        function gerarSenha() {
-            const senha = gerarSenhaAleatoria(10);
-            document.getElementById('inputPassword').value = senha;
-            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
-        }
-
+        // ============================================
+        // CRIAR USUÁRIO
+        // ============================================
         async function criarUsuario() {
             const username = document.getElementById('inputUsername').value.trim();
             const contato = document.getElementById('inputContato').value.trim();
@@ -205,6 +217,25 @@
             }
         }
 
+        // ============================================
+        // GERAR SENHA
+        // ============================================
+        function gerarSenha() {
+            const senha = gerarSenhaAleatoria(10);
+            document.getElementById('inputPassword').value = senha;
+            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
+        }
+
+        function gerarSenhaAleatoria(tamanho) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
+            let senha = '';
+            for (let i = 0; i < tamanho; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
+            return senha;
+        }
+
+        // ============================================
+        // RENOVAR
+        // ============================================
         async function renovarUsuario(id, plano) {
             if (!confirm(`⚠️ Renovar para ${plano.toUpperCase()}?`)) return;
             try {
@@ -225,6 +256,9 @@
             }
         }
 
+        // ============================================
+        // NOTIFICAR WHATSAPP
+        // ============================================
         async function notificarUsuario(id) {
             if (!confirm('📱 Enviar notificação WhatsApp?')) return;
             try {
@@ -244,6 +278,9 @@
             }
         }
 
+        // ============================================
+        // GERAR RÁPIDO
+        // ============================================
         async function gerarRapido(plano) {
             const username = 'user_' + Math.random().toString(36).substr(2, 5);
             const password = gerarSenhaAleatoria(10);
@@ -261,6 +298,9 @@
             } catch (error) { alert('❌ Erro: ' + error.message); }
         }
 
+        // ============================================
+        // EXCLUIR
+        // ============================================
         async function excluirUsuario(id) {
             if (!confirm('⚠️ Tem certeza?')) return;
             try {
@@ -269,6 +309,9 @@
             } catch (error) { console.error('Erro:', error); }
         }
 
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
         function mostrarFeedback(msg, tipo) {
             const el = document.getElementById('mensagemFeedback');
             el.textContent = msg;
@@ -330,13 +373,21 @@
         }
 
         async function logout() {
-            try {
-                await fetch('/api/logout', { method: 'POST' });
-            } catch (error) {}
+            localStorage.removeItem('token');
             window.location.href = '/';
         }
 
-        document.addEventListener('DOMContentLoaded', carregarUsuarios);
+        // ============================================
+        // INICIALIZAR
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            carregarUsuarios();
+        });
     </script>
 </body>
 </html>
