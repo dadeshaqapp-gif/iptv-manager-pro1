@@ -142,25 +142,6 @@
         let usuarios = [];
 
         // ============================================
-        // INTERCEPTAR FETCH PARA ADICIONAR TOKEN
-        // ============================================
-        const originalFetch = window.fetch;
-        window.fetch = function(url, options = {}) {
-            const token = localStorage.getItem('token');
-            if (token) {
-                options.headers = options.headers || {};
-                options.headers['Authorization'] = 'Bearer ' + token;
-            }
-            return originalFetch.call(this, url, options).then(response => {
-                if (response.status === 401) {
-                    localStorage.removeItem('token');
-                    window.location.href = '/';
-                }
-                return response;
-            });
-        };
-
-        // ============================================
         // CARREGAR USUÁRIOS
         // ============================================
         async function carregarUsuarios() {
@@ -341,22 +322,17 @@
             mostrarFeedback('📋 URL copiada!', 'success');
         }
 
-        function logout() {
-            localStorage.removeItem('token');
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+            } catch (error) {}
             window.location.href = '/';
         }
 
         // ============================================
         // INICIALIZAR
         // ============================================
-        document.addEventListener('DOMContentLoaded', function() {
-            const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/';
-                return;
-            }
-            carregarUsuarios();
-        });
+        document.addEventListener('DOMContentLoaded', carregarUsuarios);
     </script>
 </body>
 </html>

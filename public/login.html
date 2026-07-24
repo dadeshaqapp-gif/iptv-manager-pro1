@@ -52,9 +52,6 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         const data = await response.json();
 
         if (data.success) {
-            // Guardar o token
-            localStorage.setItem('token', data.token);
-            // Redirecionar para o dashboard
             window.location.href = '/dashboard';
         } else {
             errorDiv.textContent = data.error || 'Credenciais inválidas';
