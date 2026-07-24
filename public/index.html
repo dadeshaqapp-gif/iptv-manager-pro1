@@ -6,13 +6,13 @@
     <title>IPTV Manager Pro - Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: Arial, sans-serif; background: #0a0e17; color: #e0e0e0; padding: 20px; }
+        body { font-family: Arial, sans-serif; background: #0a0e17; color: #e0e0e0; padding: 20px; min-height: 100vh; display: flex; flex-direction: column; }
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
         h1 { color: #00d4ff; }
         .btn-logout { background: #ff5252; color: #fff; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
         .btn-logout:hover { background: #d32f2f; }
         .container { background: #141b2b; padding: 20px; border-radius: 10px; border: 1px solid #1a2a3a; margin-bottom: 20px; }
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end; }
         .form-group { display: flex; flex-direction: column; gap: 5px; }
         .form-group label { color: #8899aa; font-size: 12px; text-transform: uppercase; }
         .form-group input, .form-group select { padding: 10px; border-radius: 5px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; }
@@ -25,6 +25,8 @@
         .btn-warning:hover { background: #ff8f00; }
         .btn-danger { background: #ff5252; color: #fff; }
         .btn-danger:hover { background: #d32f2f; }
+        .btn-whatsapp { background: #25D366; color: #fff; }
+        .btn-whatsapp:hover { background: #128C7E; }
         .btn-small { padding: 5px 12px; font-size: 12px; }
         .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .filtros { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -41,6 +43,8 @@
         .msg { margin-top: 10px; padding: 10px; border-radius: 5px; display: none; }
         .msg-success { display: block; color: #00e676; border: 1px solid #00e676; background: #00e67622; }
         .msg-error { display: block; color: #ff5252; border: 1px solid #ff5252; background: #ff525222; }
+        .footer { margin-top: auto; text-align: center; padding: 20px; border-top: 1px solid #1a2a3a; color: #556677; font-size: 14px; }
+        .footer strong { color: #00d4ff; }
         @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } }
     </style>
 </head>
@@ -59,12 +63,12 @@
                 <input type="text" id="inputUsername" placeholder="Ex: joao123">
             </div>
             <div class="form-group">
-                <label>📧 Contato</label>
-                <input type="text" id="inputContato" placeholder="Email ou Telefone">
+                <label>📱 WhatsApp</label>
+                <input type="text" id="inputContato" placeholder="879641990">
             </div>
             <div class="form-group">
                 <label>🔑 Senha</label>
-                <input type="text" id="inputPassword" placeholder="Deixar vazio = gerar automática">
+                <input type="text" id="inputPassword" placeholder="Deixar vazio = gerar">
             </div>
             <div class="form-group">
                 <label>📋 Plano</label>
@@ -120,12 +124,12 @@
                 <thead>
                     <tr>
                         <th>Utilizador</th>
-                        <th>Contato</th>
+                        <th>📱 WhatsApp</th>
                         <th>Senha</th>
                         <th>Plano</th>
                         <th>Expiração</th>
                         <th>Status</th>
-                        <th>MAC</th>
+                        <th>📶 MAC</th>
                         <th>URL</th>
                         <th>Ações</th>
                     </tr>
@@ -137,13 +141,14 @@
         </div>
     </div>
 
+    <div class="footer">
+        Criado por <strong>Dade Shaq</strong> &copy; 2026 - Todos os direitos reservados.
+    </div>
+
     <script>
         const API_BASE = '/api';
         let usuarios = [];
 
-        // ============================================
-        // CARREGAR USUÁRIOS
-        // ============================================
         async function carregarUsuarios() {
             try {
                 const response = await fetch(`${API_BASE}/usuarios`);
@@ -155,9 +160,19 @@
             } catch (error) { console.error('Erro:', error); }
         }
 
-        // ============================================
-        // CRIAR USUÁRIO
-        // ============================================
+        function gerarSenhaAleatoria(tamanho) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
+            let senha = '';
+            for (let i = 0; i < tamanho; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
+            return senha;
+        }
+
+        function gerarSenha() {
+            const senha = gerarSenhaAleatoria(10);
+            document.getElementById('inputPassword').value = senha;
+            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
+        }
+
         async function criarUsuario() {
             const username = document.getElementById('inputUsername').value.trim();
             const contato = document.getElementById('inputContato').value.trim();
@@ -190,25 +205,6 @@
             }
         }
 
-        // ============================================
-        // GERAR SENHA
-        // ============================================
-        function gerarSenha() {
-            const senha = gerarSenhaAleatoria(10);
-            document.getElementById('inputPassword').value = senha;
-            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
-        }
-
-        function gerarSenhaAleatoria(tamanho) {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
-            let senha = '';
-            for (let i = 0; i < tamanho; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
-            return senha;
-        }
-
-        // ============================================
-        // RENOVAR
-        // ============================================
         async function renovarUsuario(id, plano) {
             if (!confirm(`⚠️ Renovar para ${plano.toUpperCase()}?`)) return;
             try {
@@ -219,7 +215,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    mostrarFeedback(`✅ Usuário renovado para ${plano.toUpperCase()}!`, 'success');
+                    mostrarFeedback(`✅ Usuário renovado para ${plano.toUpperCase()}! WhatsApp notificado!`, 'success');
                     carregarUsuarios();
                 } else {
                     mostrarFeedback('❌ ' + data.error, 'error');
@@ -229,9 +225,25 @@
             }
         }
 
-        // ============================================
-        // GERAR RÁPIDO
-        // ============================================
+        async function notificarUsuario(id) {
+            if (!confirm('📱 Enviar notificação WhatsApp?')) return;
+            try {
+                const response = await fetch(`${API_BASE}/notificar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    mostrarFeedback('📱 WhatsApp enviado!', 'success');
+                } else {
+                    mostrarFeedback('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                mostrarFeedback('❌ Erro: ' + error.message, 'error');
+            }
+        }
+
         async function gerarRapido(plano) {
             const username = 'user_' + Math.random().toString(36).substr(2, 5);
             const password = gerarSenhaAleatoria(10);
@@ -249,9 +261,6 @@
             } catch (error) { alert('❌ Erro: ' + error.message); }
         }
 
-        // ============================================
-        // EXCLUIR
-        // ============================================
         async function excluirUsuario(id) {
             if (!confirm('⚠️ Tem certeza?')) return;
             try {
@@ -260,9 +269,6 @@
             } catch (error) { console.error('Erro:', error); }
         }
 
-        // ============================================
-        // FUNÇÕES AUXILIARES
-        // ============================================
         function mostrarFeedback(msg, tipo) {
             const el = document.getElementById('mensagemFeedback');
             el.textContent = msg;
@@ -311,6 +317,7 @@
                         <button class="btn btn-success btn-small" onclick="renovarUsuario('${u.id}','mensal')">+30d</button>
                         <button class="btn btn-warning btn-small" onclick="renovarUsuario('${u.id}','trimestral')">+90d</button>
                         <button class="btn btn-danger btn-small" onclick="renovarUsuario('${u.id}','anual')">+365d</button>
+                        <button class="btn btn-whatsapp btn-small" onclick="notificarUsuario('${u.id}')">📱</button>
                         <button class="btn btn-danger btn-small" onclick="excluirUsuario('${u.id}')" style="background:#ff5252;">🗑️</button>
                     </td>
                 </tr>`;
@@ -329,9 +336,6 @@
             window.location.href = '/';
         }
 
-        // ============================================
-        // INICIALIZAR
-        // ============================================
         document.addEventListener('DOMContentLoaded', carregarUsuarios);
     </script>
 </body>
