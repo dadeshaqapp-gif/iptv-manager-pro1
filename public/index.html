@@ -1,122 +1,304 @@
 ﻿<!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IPTV Manager Pro</title>
-  <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Manager Pro - Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; background: #0a0e17; color: #e0e0e0; padding: 20px; }
+        h1 { color: #00d4ff; margin-bottom: 20px; }
+        .container { background: #141b2b; padding: 20px; border-radius: 10px; border: 1px solid #1a2a3a; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; color: #8899aa; }
+        input, select { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; }
+        button { background: #00d4ff; color: #0a0e17; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00b8e6; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #1a2a3a; }
+        th { color: #00d4ff; }
+        .badge { padding: 3px 10px; border-radius: 20px; font-size: 12px; }
+        .badge-success { background: #00e67633; color: #00e676; border: 1px solid #00e676; }
+        .badge-danger { background: #ff525233; color: #ff5252; border: 1px solid #ff5252; }
+        .badge-warning { background: #ffab0033; color: #ffab00; border: 1px solid #ffab00; }
+        .btn-delete { background: #ff525233; color: #ff5252; border: 1px solid #ff5252; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+        .btn-delete:hover { background: #ff5252; color: #fff; }
+        .btn-logout { background: #ff5252; color: #fff; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; float: right; }
+        .btn-logout:hover { background: #d32f2f; }
+        .url-copy { background: #00d4ff22; color: #00d4ff; padding: 4px 10px; border-radius: 4px; border: 1px solid #00d4ff44; cursor: pointer; font-size: 12px; }
+        .url-copy:hover { background: #00d4ff44; }
+        .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .quick-actions button { background: #1a2a3a; color: #e0e0e0; border: 1px solid #2a3a4a; }
+        .quick-actions button:hover { background: #2a3a4a; }
+        .filtros { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .filtros input, .filtros select { width: auto; min-width: 150px; }
+    </style>
 </head>
 <body>
-  <div id="app">
-    <!-- ===== HEADER ===== -->
-    <header>
-      <h1>📺 IPTV Manager Pro</h1>
-      <p>Sistema Profissional de Gerenciamento de Assinaturas IPTV</p>
-    </header>
 
-    <!-- ===== FORMULÁRIO DE CRIAÇÃO ===== -->
-    <div class="container">
-      <h2>➕ Criar Novo Usuário</h2>
-      <div class="form-row">
-        <div class="form-group">
-          <label>👤 Usuário</label>
-          <input type="text" id="inputUsername" placeholder="Ex: joao123">
-        </div>
-        <div class="form-group">
-          <label>📧 Contato</label>
-          <input type="text" id="inputContato" placeholder="Email ou Telefone">
-        </div>
-        <div class="form-group">
-          <label>🔑 Senha</label>
-          <div style="display:flex;gap:8px;">
-            <input type="text" id="inputPassword" placeholder="Senha" style="flex:1;">
-            <button onclick="gerarSenha()" class="btn-small" title="Gerar senha automática">🎲</button>
-          </div>
-        </div>
-        <div class="form-group">
-          <label>📋 Plano</label>
-          <select id="inputPlano">
-            <option value="teste">Teste (2h)</option>
-            <option value="mensal">Mensal (30d)</option>
-            <option value="trimestral">Trimestral (4m)</option>
-            <option value="anual">Anual (12m)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>📶 MAC Address</label>
-          <input type="text" id="inputMac" placeholder="AA:BB:CC:DD:EE:FF">
-          <small style="color:#556677;font-size:11px;">Formato: AA:BB:CC:DD:EE:FF</small>
-        </div>
-        <div class="form-group" style="justify-content:flex-end;">
-          <button onclick="criarUsuario()" class="btn-criar">
-            <i class="fas fa-plus"></i> Criar Usuário
-          </button>
-        </div>
-      </div>
-      <div id="mensagemFeedback" style="margin-top:12px;padding:10px;border-radius:8px;display:none;"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1>📺 IPTV Manager Pro</h1>
+        <button class="btn-logout" onclick="logout()">🚪 Sair</button>
     </div>
 
-    <!-- ===== GERAR CREDENCIAIS RÁPIDAS ===== -->
+    <!-- ===== CRIAR UTILIZADOR ===== -->
     <div class="container">
-      <h2>🎯 Gerar Credenciais Rápidas</h2>
-      <div class="btn-group">
-        <button onclick="gerarTeste()" class="btn-test">🎯 Teste (2h)</button>
-        <button onclick="gerarMensal()" class="btn-mensal">📅 Mensal (30d)</button>
-        <button onclick="gerarTrimestral()" class="btn-trimestral">📆 Trimestral (4m)</button>
-        <button onclick="gerarAnual()" class="btn-anual">📅 Anual (12m)</button>
-      </div>
+        <h2>➕ Criar Novo Utilizador</h2>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
+            <div class="form-group">
+                <label>👤 Utilizador</label>
+                <input type="text" id="inputUsername" placeholder="Ex: joao123">
+            </div>
+            <div class="form-group">
+                <label>📧 Contato</label>
+                <input type="text" id="inputContato" placeholder="Email ou Telefone">
+            </div>
+            <div class="form-group">
+                <label>🔑 Senha</label>
+                <input type="text" id="inputPassword" placeholder="Senha">
+            </div>
+            <div class="form-group">
+                <label>📋 Plano</label>
+                <select id="inputPlano">
+                    <option value="teste">Teste (2h)</option>
+                    <option value="mensal">Mensal (30d)</option>
+                    <option value="trimestral">Trimestral (4m)</option>
+                    <option value="anual">Anual (12m)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <button onclick="criarUsuario()" style="width:100%;">➕ Criar</button>
+            </div>
+        </div>
+        <div id="mensagemFeedback" style="margin-top:10px; padding:10px; border-radius:5px; display:none;"></div>
     </div>
 
-    <!-- ===== TABELA DE USUÁRIOS ===== -->
+    <!-- ===== AÇÕES RÁPIDAS ===== -->
     <div class="container">
-      <h2>📋 Usuários Cadastrados</h2>
-      <div class="filtros">
-        <input type="text" id="searchInput" placeholder="🔍 Buscar usuário..." onkeyup="filtrarUsuarios()">
-        <select id="filtroPlano" onchange="filtrarUsuarios()">
-          <option value="todos">Todos os planos</option>
-          <option value="teste">Teste</option>
-          <option value="mensal">Mensal</option>
-          <option value="trimestral">Trimestral</option>
-          <option value="anual">Anual</option>
-        </select>
-        <select id="filtroStatus" onchange="filtrarUsuarios()">
-          <option value="todos">Todos os status</option>
-          <option value="ativo">Ativo</option>
-          <option value="aviso-5dias">Expira em 5 dias</option>
-          <option value="aviso-1dia">Expira amanhã</option>
-          <option value="expirado">Expirado</option>
-        </select>
-        <span style="margin-left:auto;color:#8899aa;" id="totalRegistros">0 registros</span>
-      </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Usuário</th>
-              <th>Contato</th>
-              <th>Senha</th>
-              <th>Plano</th>
-              <th>Expiração</th>
-              <th>Status</th>
-              <th>📶 MAC</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody id="listaUsuarios">
-            <tr><td colspan="8" style="text-align:center;padding:40px;color:#8899aa;">⏳ Carregando...</td></tr>
-          </tbody>
-        </table>
-      </div>
+        <h2>⚡ Gerar Credenciais Rápidas</h2>
+        <div class="quick-actions">
+            <button onclick="gerarRapido('teste')">🎯 Teste (2h)</button>
+            <button onclick="gerarRapido('mensal')">📅 Mensal (30d)</button>
+            <button onclick="gerarRapido('trimestral')">📆 Trimestral (4m)</button>
+            <button onclick="gerarRapido('anual')">📅 Anual (12m)</button>
+        </div>
     </div>
-  </div>
 
-  <script src="js/app.js"></script>
+    <!-- ===== LISTA DE UTILIZADORES ===== -->
+    <div class="container">
+        <h2>📋 Utilizadores Cadastrados</h2>
+        <div class="filtros">
+            <input type="text" id="searchInput" placeholder="🔍 Buscar utilizador..." oninput="filtrarTabela()">
+            <select id="filtroPlano" onchange="filtrarTabela()">
+                <option value="todos">Todos os planos</option>
+                <option value="teste">Teste</option>
+                <option value="mensal">Mensal</option>
+                <option value="trimestral">Trimestral</option>
+                <option value="anual">Anual</option>
+            </select>
+            <select id="filtroStatus" onchange="filtrarTabela()">
+                <option value="todos">Todos os status</option>
+                <option value="ativo">Ativo</option>
+                <option value="expirado">Expirado</option>
+            </select>
+            <span style="margin-left:auto; color:#8899aa;" id="totalRegistros">0 registros</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Utilizador</th>
+                        <th>Contato</th>
+                        <th>Senha</th>
+                        <th>Plano</th>
+                        <th>Expiração</th>
+                        <th>Status</th>
+                        <th>URL M3U</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="listaUsuarios">
+                    <tr><td colspan="8" style="text-align:center;padding:20px;color:#8899aa;">⏳ Carregando...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-  <!-- ===== RODAPÉ ===== -->
-  <footer style="text-align: center; padding: 20px; margin-top: 40px; border-top: 1px solid #1a2a3a; color: #556677; font-size: 14px;">
-    Criado por <strong style="color: #00d4ff;">Dade Shaq</strong> &copy; 2026 - Todos os direitos reservados.
-  </footer>
+    <script>
+        const API_BASE = '/api';
+        let usuarios = [];
 
+        // ============================================
+        // CARREGAR USUÁRIOS
+        // ============================================
+        async function carregarUsuarios() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/usuarios`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                if (response.status === 401) {
+                    window.location.href = '/';
+                    return;
+                }
+                const data = await response.json();
+                if (data.success) {
+                    usuarios = data.data || [];
+                    filtrarTabela();
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        // ============================================
+        // CRIAR USUÁRIO
+        // ============================================
+        async function criarUsuario() {
+            const username = document.getElementById('inputUsername').value.trim();
+            const contato = document.getElementById('inputContato').value.trim();
+            let password = document.getElementById('inputPassword').value.trim();
+            const plano = document.getElementById('inputPlano').value;
+
+            if (!username) { mostrarFeedback('❌ Utilizador é obrigatório!', 'error'); return; }
+            if (!password) { password = gerarSenha(8); document.getElementById('inputPassword').value = password; }
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/criar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ username, password, plano, contato })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    mostrarFeedback(`✅ Utilizador "${username}" criado!`, 'success');
+                    document.getElementById('inputUsername').value = '';
+                    document.getElementById('inputContato').value = '';
+                    document.getElementById('inputPassword').value = '';
+                    carregarUsuarios();
+                } else {
+                    mostrarFeedback('❌ ' + data.error, 'error');
+                }
+            } catch (error) {
+                mostrarFeedback('❌ Erro: ' + error.message, 'error');
+            }
+        }
+
+        // ============================================
+        // GERAR RÁPIDO
+        // ============================================
+        async function gerarRapido(plano) {
+            const username = 'user_' + Math.random().toString(36).substr(2, 5);
+            const password = gerarSenha(10);
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`${API_BASE}/criar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    body: JSON.stringify({ username, password, plano, contato: 'rapido@temp.com' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(`✅ ${plano.toUpperCase()} criado!\n\n👤 ${username}\n🔑 ${password}`);
+                    carregarUsuarios();
+                }
+            } catch (error) {
+                alert('❌ Erro: ' + error.message);
+            }
+        }
+
+        // ============================================
+        // EXCLUIR USUÁRIO
+        // ============================================
+        async function excluirUsuario(id) {
+            if (!confirm('⚠️ Tem certeza que deseja excluir este utilizador?')) return;
+            try {
+                const token = localStorage.getItem('token');
+                await fetch(`${API_BASE}/excluir/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                carregarUsuarios();
+            } catch (error) {
+                console.error('Erro:', error);
+            }
+        }
+
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
+        function gerarSenha(tamanho) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
+            let senha = '';
+            for (let i = 0; i < tamanho; i++) {
+                senha += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return senha;
+        }
+
+        function mostrarFeedback(msg, tipo) {
+            const el = document.getElementById('mensagemFeedback');
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.color = tipo === 'error' ? '#ff5252' : '#00e676';
+            el.style.border = '1px solid ' + (tipo === 'error' ? '#ff5252' : '#00e676');
+            el.style.background = tipo === 'error' ? '#ff525222' : '#00e67622';
+            setTimeout(() => { el.style.display = 'none'; }, 5000);
+        }
+
+        function filtrarTabela() {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const plano = document.getElementById('filtroPlano').value;
+            const status = document.getElementById('filtroStatus').value;
+
+            const filtrados = usuarios.filter(u => {
+                const matchSearch = u.username.toLowerCase().includes(search);
+                const matchPlano = plano === 'todos' || u.plano === plano;
+                const matchStatus = status === 'todos' || (status === 'ativo' ? u.status === 'ativo' : u.status !== 'ativo');
+                return matchSearch && matchPlano && matchStatus;
+            });
+
+            renderizarTabela(filtrados);
+            document.getElementById('totalRegistros').textContent = filtrados.length + ' registros';
+        }
+
+        function renderizarTabela(dados) {
+            const tbody = document.getElementById('listaUsuarios');
+            if (dados.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:20px;color:#8899aa;">📭 Nenhum utilizador</td></tr>';
+                return;
+            }
+            const baseUrl = window.location.origin;
+            tbody.innerHTML = dados.map(u => {
+                const expiracao = u.data_expiracao ? new Date(u.data_expiracao).toLocaleDateString() : '-';
+                const statusClass = u.status === 'ativo' ? 'badge-success' : 'badge-danger';
+                const statusText = u.status === 'ativo' ? '✅ Ativo' : '❌ Inativo';
+                const urlM3U = `${baseUrl}/playlist.m3u?username=${u.username}&password=${u.password}`;
+                return `<tr>
+                    <td><strong>${u.username}</strong></td>
+                    <td>${u.contato || '-'}</td>
+                    <td><span style="font-family:monospace;">${u.password}</span></td>
+                    <td><span class="badge badge-${u.plano}">${u.plano.toUpperCase()}</span></td>
+                    <td>${expiracao}</td>
+                    <td><span class="badge ${statusClass}">${statusText}</span></td>
+                    <td><button class="url-copy" onclick="copiarUrl('${urlM3U}')">📋 Copiar</button></td>
+                    <td><button class="btn-delete" onclick="excluirUsuario('${u.id}')">🗑️</button></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function copiarUrl(url) {
+            navigator.clipboard.writeText(url);
+            mostrarFeedback('📋 URL copiada!', 'success');
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/';
+        }
+
+        document.addEventListener('DOMContentLoaded', carregarUsuarios);
+    </script>
 </body>
 </html>
