@@ -1,0 +1,81 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPTV Manager Pro - Login</title>
+    <style>
+        body { font-family: Arial; background: #0a0e17; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-container { background: #141b2b; padding: 40px; border-radius: 12px; border: 1px solid #1a2a3a; width: 100%; max-width: 380px; }
+        h1 { color: #00d4ff; text-align: center; margin-bottom: 30px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; color: #8899aa; }
+        input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #1a2a3a; background: #0a0e17; color: #e0e0e0; font-size: 16px; }
+        input:focus { border-color: #00d4ff; outline: none; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: #00d4ff; color: #0a0e17; font-size: 16px; font-weight: 600; cursor: pointer; }
+        button:hover { background: #00b8e6; }
+        .error { color: #ff5252; text-align: center; margin-top: 15px; display: none; }
+        .logo { text-align: center; font-size: 48px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+<div class="login-container">
+    <div class="logo">📺</div>
+    <h1>IPTV Manager Pro</h1>
+    <form id="loginForm">
+        <div class="form-group">
+            <label>👤 Utilizador</label>
+            <input type="text" id="username" value="admin" required>
+        </div>
+        <div class="form-group">
+            <label>🔑 Senha</label>
+            <input type="password" id="password" value="iptv2024" required>
+        </div>
+        <button type="submit">Entrar</button>
+        <div id="error" class="error">Credenciais inválidas!</div>
+    </form>
+</div>
+<script>
+document.getElementById('loginForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorDiv = document.getElementById('error');
+    errorDiv.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            // Guardar token
+            localStorage.setItem('token', data.token);
+            // Redirecionar para o dashboard
+            window.location.href = '/dashboard';
+        } else {
+            errorDiv.textContent = data.error || 'Credenciais inválidas';
+            errorDiv.style.display = 'block';
+        }
+    } catch (error) {
+        errorDiv.textContent = 'Erro ao conectar ao servidor';
+        errorDiv.style.display = 'block';
+    }
+});
+
+// Adicionar token a todas as requisições fetch
+const originalFetch = window.fetch;
+window.fetch = function(url, options = {}) {
+    const token = localStorage.getItem('token');
+    if (token) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = 'Bearer ' + token;
+    }
+    return originalFetch.call(this, url, options);
+};
+</script>
+</body>
+</html>

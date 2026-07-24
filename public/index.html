@@ -41,7 +41,6 @@
         <button class="btn-logout" onclick="logout()">🚪 Sair</button>
     </div>
 
-    <!-- ===== CRIAR UTILIZADOR ===== -->
     <div class="container">
         <h2>➕ Criar Novo Utilizador</h2>
         <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr auto; gap: 15px; align-items: end;">
@@ -73,7 +72,6 @@
         <div id="mensagemFeedback" style="margin-top:10px; padding:10px; border-radius:5px; display:none;"></div>
     </div>
 
-    <!-- ===== AÇÕES RÁPIDAS ===== -->
     <div class="container">
         <h2>⚡ Gerar Credenciais Rápidas</h2>
         <div class="quick-actions">
@@ -84,7 +82,6 @@
         </div>
     </div>
 
-    <!-- ===== LISTA DE UTILIZADORES ===== -->
     <div class="container">
         <h2>📋 Utilizadores Cadastrados</h2>
         <div class="filtros">
@@ -126,21 +123,33 @@
 
     <script>
         const API_BASE = '/api';
-        let usuarios = [];
+
+        // ============================================
+        // INTERCEPTAR FETCH PARA ADICIONAR TOKEN
+        // ============================================
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options = {}) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                options.headers = options.headers || {};
+                options.headers['Authorization'] = 'Bearer ' + token;
+            }
+            // Se der erro 401, redirecionar para login
+            return originalFetch.call(this, url, options).then(response => {
+                if (response.status === 401) {
+                    localStorage.removeItem('token');
+                    window.location.href = '/';
+                }
+                return response;
+            });
+        };
 
         // ============================================
         // CARREGAR USUÁRIOS
         // ============================================
         async function carregarUsuarios() {
             try {
-                const token = localStorage.getItem('token');
-                const response = await fetch(`${API_BASE}/usuarios`, {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                if (response.status === 401) {
-                    window.location.href = '/';
-                    return;
-                }
+                const response = await fetch(`${API_BASE}/usuarios`);
                 const data = await response.json();
                 if (data.success) {
                     usuarios = data.data || [];
@@ -164,10 +173,9 @@
             if (!password) { password = gerarSenha(8); document.getElementById('inputPassword').value = password; }
 
             try {
-                const token = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE}/criar`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password, plano, contato })
                 });
                 const data = await response.json();
@@ -192,10 +200,9 @@
             const username = 'user_' + Math.random().toString(36).substr(2, 5);
             const password = gerarSenha(10);
             try {
-                const token = localStorage.getItem('token');
                 const response = await fetch(`${API_BASE}/criar`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, password, plano, contato: 'rapido@temp.com' })
                 });
                 const data = await response.json();
@@ -214,11 +221,7 @@
         async function excluirUsuario(id) {
             if (!confirm('⚠️ Tem certeza que deseja excluir este utilizador?')) return;
             try {
-                const token = localStorage.getItem('token');
-                await fetch(`${API_BASE}/excluir/${id}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
+                await fetch(`${API_BASE}/excluir/${id}`, { method: 'DELETE' });
                 carregarUsuarios();
             } catch (error) {
                 console.error('Erro:', error);
@@ -228,6 +231,8 @@
         // ============================================
         // FUNÇÕES AUXILIARES
         // ============================================
+        let usuarios = [];
+
         function gerarSenha(tamanho) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%&*';
             let senha = '';
@@ -298,7 +303,15 @@
             window.location.href = '/';
         }
 
-        document.addEventListener('DOMContentLoaded', carregarUsuarios);
+        // Verificar token ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            carregarUsuarios();
+        });
     </script>
 </body>
 </html>
