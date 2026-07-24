@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Manager Pro</title>
+    <title>IPTV Manager Pro - Dashboard</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: Arial, sans-serif; background: #0a0e17; color: #e0e0e0; padding: 20px; }
@@ -25,8 +25,6 @@
         .btn-warning:hover { background: #ff8f00; }
         .btn-danger { background: #ff5252; color: #fff; }
         .btn-danger:hover { background: #d32f2f; }
-        .btn-whatsapp { background: #25D366; color: #fff; }
-        .btn-whatsapp:hover { background: #128C7E; }
         .btn-small { padding: 5px 12px; font-size: 12px; }
         .quick-actions { display: flex; gap: 10px; flex-wrap: wrap; }
         .filtros { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -61,8 +59,8 @@
                 <input type="text" id="inputUsername" placeholder="Ex: joao123">
             </div>
             <div class="form-group">
-                <label>📧 Contato (WhatsApp)</label>
-                <input type="text" id="inputContato" placeholder="879641990">
+                <label>📧 Contato</label>
+                <input type="text" id="inputContato" placeholder="Email ou Telefone">
             </div>
             <div class="form-group">
                 <label>🔑 Senha</label>
@@ -143,7 +141,9 @@
         const API_BASE = '/api';
         let usuarios = [];
 
-        // Interceptar fetch para adicionar token
+        // ============================================
+        // INTERCEPTAR FETCH PARA ADICIONAR TOKEN
+        // ============================================
         const originalFetch = window.fetch;
         window.fetch = function(url, options = {}) {
             const token = localStorage.getItem('token');
@@ -160,6 +160,9 @@
             });
         };
 
+        // ============================================
+        // CARREGAR USUÁRIOS
+        // ============================================
         async function carregarUsuarios() {
             try {
                 const response = await fetch(`${API_BASE}/usuarios`);
@@ -171,14 +174,9 @@
             } catch (error) { console.error('Erro:', error); }
         }
 
-        function gerarSenha() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
-            let senha = '';
-            for (let i = 0; i < 10; i++) senha += chars.charAt(Math.floor(Math.random() * chars.length));
-            document.getElementById('inputPassword').value = senha;
-            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
-        }
-
+        // ============================================
+        // CRIAR USUÁRIO
+        // ============================================
         async function criarUsuario() {
             const username = document.getElementById('inputUsername').value.trim();
             const contato = document.getElementById('inputContato').value.trim();
@@ -211,6 +209,15 @@
             }
         }
 
+        // ============================================
+        // GERAR SENHA
+        // ============================================
+        function gerarSenha() {
+            const senha = gerarSenhaAleatoria(10);
+            document.getElementById('inputPassword').value = senha;
+            mostrarFeedback('🔑 Senha gerada: ' + senha, 'success');
+        }
+
         function gerarSenhaAleatoria(tamanho) {
             const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*?';
             let senha = '';
@@ -218,6 +225,9 @@
             return senha;
         }
 
+        // ============================================
+        // RENOVAR
+        // ============================================
         async function renovarUsuario(id, plano) {
             if (!confirm(`⚠️ Renovar para ${plano.toUpperCase()}?`)) return;
             try {
@@ -228,7 +238,7 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    mostrarFeedback(`✅ Usuário renovado para ${plano.toUpperCase()}! WhatsApp notificado!`, 'success');
+                    mostrarFeedback(`✅ Usuário renovado para ${plano.toUpperCase()}!`, 'success');
                     carregarUsuarios();
                 } else {
                     mostrarFeedback('❌ ' + data.error, 'error');
@@ -238,25 +248,9 @@
             }
         }
 
-        async function notificarUsuario(id) {
-            if (!confirm('📱 Enviar notificação WhatsApp?')) return;
-            try {
-                const response = await fetch(`${API_BASE}/notificar`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    mostrarFeedback('📱 WhatsApp enviado com sucesso!', 'success');
-                } else {
-                    mostrarFeedback('❌ ' + data.error, 'error');
-                }
-            } catch (error) {
-                mostrarFeedback('❌ Erro: ' + error.message, 'error');
-            }
-        }
-
+        // ============================================
+        // GERAR RÁPIDO
+        // ============================================
         async function gerarRapido(plano) {
             const username = 'user_' + Math.random().toString(36).substr(2, 5);
             const password = gerarSenhaAleatoria(10);
@@ -274,6 +268,9 @@
             } catch (error) { alert('❌ Erro: ' + error.message); }
         }
 
+        // ============================================
+        // EXCLUIR
+        // ============================================
         async function excluirUsuario(id) {
             if (!confirm('⚠️ Tem certeza?')) return;
             try {
@@ -282,6 +279,9 @@
             } catch (error) { console.error('Erro:', error); }
         }
 
+        // ============================================
+        // FUNÇÕES AUXILIARES
+        // ============================================
         function mostrarFeedback(msg, tipo) {
             const el = document.getElementById('mensagemFeedback');
             el.textContent = msg;
@@ -330,7 +330,6 @@
                         <button class="btn btn-success btn-small" onclick="renovarUsuario('${u.id}','mensal')">+30d</button>
                         <button class="btn btn-warning btn-small" onclick="renovarUsuario('${u.id}','trimestral')">+90d</button>
                         <button class="btn btn-danger btn-small" onclick="renovarUsuario('${u.id}','anual')">+365d</button>
-                        <button class="btn btn-whatsapp btn-small" onclick="notificarUsuario('${u.id}')">📱</button>
                         <button class="btn btn-danger btn-small" onclick="excluirUsuario('${u.id}')" style="background:#ff5252;">🗑️</button>
                     </td>
                 </tr>`;
@@ -347,7 +346,17 @@
             window.location.href = '/';
         }
 
-        document.addEventListener('DOMContentLoaded', carregarUsuarios);
+        // ============================================
+        // INICIALIZAR
+        // ============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            carregarUsuarios();
+        });
     </script>
 </body>
 </html>

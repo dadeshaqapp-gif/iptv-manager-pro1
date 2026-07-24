@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Manager Pro - Login</title>
     <style>
-        body { font-family: Arial; background: #0a0e17; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        body { font-family: Arial, sans-serif; background: #0a0e17; color: #e0e0e0; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
         .login-container { background: #141b2b; padding: 40px; border-radius: 12px; border: 1px solid #1a2a3a; width: 100%; max-width: 380px; }
         h1 { color: #00d4ff; text-align: center; margin-bottom: 30px; }
         .form-group { margin-bottom: 20px; }
@@ -52,7 +52,7 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         const data = await response.json();
 
         if (data.success) {
-            // Guardar token
+            // Guardar o token
             localStorage.setItem('token', data.token);
             // Redirecionar para o dashboard
             window.location.href = '/dashboard';
@@ -65,17 +65,6 @@ document.getElementById('loginForm').addEventListener('submit', async function(e
         errorDiv.style.display = 'block';
     }
 });
-
-// Adicionar token a todas as requisições fetch
-const originalFetch = window.fetch;
-window.fetch = function(url, options = {}) {
-    const token = localStorage.getItem('token');
-    if (token) {
-        options.headers = options.headers || {};
-        options.headers['Authorization'] = 'Bearer ' + token;
-    }
-    return originalFetch.call(this, url, options);
-};
 </script>
 </body>
 </html>
